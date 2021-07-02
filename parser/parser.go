@@ -5,6 +5,7 @@ import (
 	"nala/ast"
 	"nala/lexer"
 	"nala/token"
+	"strconv"
 )
 
 const (
@@ -34,6 +35,14 @@ type Parser struct {
 	infixParseFns  map[token.TokenType]infixParseFn
 }
 
+func (p *Parser) registerPrefix(tokenType token.TokenType, fn prefixParseFn) {
+	p.prefixParseFns[tokenType] = fn
+}
+
+func (p *Parser) registerInfix(tokenType token.TokenType, fn infixParseFn) {
+	p.infixParseFns[tokenType] = fn
+}
+
 func New(l *lexer.Lexer) *Parser {
 	p := &Parser{l: l, errors: []string{}}
 
@@ -44,6 +53,9 @@ func New(l *lexer.Lexer) *Parser {
 	// associate functions with TokenTypes
 	p.prefixParseFns = make(map[token.TokenType]prefixParseFn)
 	p.registerPrefix(token.IDENT, p.parseIdentifier)
+	p.registerPrefix(token.INT, p.parseIntegerLiteral)
+	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
+	p.registerPrefix(token.BANG, p.parsePrefixExpression)
 
 	return p
 }
@@ -146,6 +158,7 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 func (p *Parser) parseExpression(precedence int) ast.Expression {
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
+		p.noPrefixParseFnError()
 		return nil
 	}
 	leftExp := prefix()
@@ -155,6 +168,30 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 
 func (p *Parser) parseIdentifier() ast.Expression {
 	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+}
+
+func (p *Parser) parseIntegerLiteral() ast.Expression {
+	lit := &ast.IntegerLiteral{Token: p.curToken}
+
+	val, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
+	if err != nil {
+		p.integerParseError()
+		return nil
+	}
+
+	lit.Value = val
+	return lit
+}
+
+func (p *Parser) parsePrefixExpression() ast.Expression {
+	expression := &ast.PrefixExpression{
+		Token:    p.curToken,
+		Operator: p.curToken.Literal,
+	}
+
+	p.nextToken()
+	expression.Right = p.parseExpression(PREFIX)
+	return expression
 }
 
 func (p *Parser) expectPeek(expectedType token.TokenType) bool {
@@ -198,10 +235,14 @@ func (p *Parser) curError(t token.TokenType) {
 	p.errors = append(p.errors, err)
 }
 
-func (p *Parser) registerPrefix(tokenType token.TokenType, fn prefixParseFn) {
-	p.prefixParseFns[tokenType] = fn
+func (p *Parser) integerParseError() {
+	err := fmt.Sprintf("could not parse %q as integer",
+		p.curToken.Literal)
+	p.errors = append(p.errors, err)
 }
 
-func (p *Parser) registerInfix(tokenType token.TokenType, fn infixParseFn) {
-	p.infixParseFns[tokenType] = fn
+func (p *Parser) noPrefixParseFnError() {
+	err := fmt.Sprintf("no prefix parse function found for %s",
+		p.curToken.Type)
+	p.errors = append(p.errors, err)
 }

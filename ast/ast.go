@@ -50,7 +50,7 @@ func (p *Program) String() string {
 }
 
 type LetStatement struct {
-	Token token.Token // LET
+	Token token.Token // {LET, "let"}
 	Name  *Identifier // even though Identifiers produce values, we don't use that function inside of LetStatements
 	Value Expression
 }
@@ -77,7 +77,7 @@ func (ls *LetStatement) String() string {
 }
 
 type Identifier struct {
-	Token token.Token // IDENT
+	Token token.Token // {IDENT,<id>}
 	Value string
 }
 
@@ -121,4 +121,57 @@ func (es *ExpressionStatement) String() string {
 		return es.Expression.String()
 	}
 	return ""
+}
+
+type IntegerLiteral struct {
+	Token token.Token
+	Value int64
+}
+
+func (ile *IntegerLiteral) expressionNode()      {}
+func (ile *IntegerLiteral) TokenLiteral() string { return ile.Token.Literal }
+func (ile *IntegerLiteral) String() string       { return ile.Token.Literal }
+
+// Or UnaryExpression
+type PrefixExpression struct {
+	Token    token.Token // the prefix token e.g: ! in !true
+	Operator string
+	Right    Expression
+}
+
+func (pe *PrefixExpression) expressionNode()      {}
+func (pe *PrefixExpression) TokenLiteral() string { return pe.Token.Literal }
+func (pe *PrefixExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("(")
+	out.WriteString(pe.Operator)
+	out.WriteString(pe.Right.String())
+	out.WriteString(")")
+
+	return out.String()
+}
+
+// Or Binary Expression
+type InfixExpression struct {
+	Token    token.Token // the infix token e.g: + in 5 + 2
+	Left     Expression
+	Operator string
+	Right    Expression
+}
+
+func (ie *InfixExpression) expressionNode()      {}
+func (ie *InfixExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *InfixExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("[")
+	out.WriteString(ie.Left.String())
+	out.WriteString(" ")
+	out.WriteString(ie.Operator)
+	out.WriteString(" ")
+	out.WriteString(ie.Right.String())
+	out.WriteString("]")
+
+	return out.String()
 }
