@@ -132,7 +132,7 @@ func (ile *IntegerLiteral) expressionNode()      {}
 func (ile *IntegerLiteral) TokenLiteral() string { return ile.Token.Literal }
 func (ile *IntegerLiteral) String() string       { return ile.Token.Literal }
 
-// Or UnaryExpression
+// Or UnaryExpression/LiteralExpression
 type PrefixExpression struct {
 	Token    token.Token // the prefix token e.g: ! in !true
 	Operator string
@@ -165,13 +165,13 @@ func (ie *InfixExpression) TokenLiteral() string { return ie.Token.Literal }
 func (ie *InfixExpression) String() string {
 	var out bytes.Buffer
 
-	out.WriteString("[")
+	out.WriteString("(")
 	out.WriteString(ie.Left.String())
 	out.WriteString(" ")
 	out.WriteString(ie.Operator)
 	out.WriteString(" ")
 	out.WriteString(ie.Right.String())
-	out.WriteString("]")
+	out.WriteString(")")
 
 	return out.String()
 }
