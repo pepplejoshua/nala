@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"nala/lexer"
-	"nala/token"
+	"nala/parser"
 )
 
 const PROMPT = "=> "
@@ -15,17 +15,55 @@ func Start(in io.Reader, out io.Writer) {
 	scanner := bufio.NewScanner(in)
 
 	for {
-		fmt.Printf(PROMPT)
+		fmt.Print(PROMPT)
 		scanned := scanner.Scan()
 		if !scanned {
 			return
 		}
 
 		line := scanner.Text()
-		l := lexer.New(line)
 
-		for tok := l.NextToken(); tok.Type != token.EOF; tok = l.NextToken() {
-			fmt.Printf("%+v\n", tok)
+		if line == ".q" {
+			io.WriteString(out, "Arigatōgozaimashita!\n")
+			break
+		}
+		// pl := lexer.New(line)
+		l := lexer.New(line)
+		p := parser.New(l)
+
+		// for tok := pl.NextToken(); tok.Type != token.EOF; tok = pl.NextToken() {
+		// 	fmt.Printf("%+v\n", tok)
+		// }
+
+		program := p.ParseProgram()
+		if len(p.Errors()) != 0 {
+			printParseErrors(out, p.Errors())
+		} else {
+			io.WriteString(out, program.String())
+			io.WriteString(out, "\n")
 		}
 	}
+}
+
+const MONKEY_FACE = `            __,__
+   .--.  .-"     "-.  .--.
+  / .. \/  .-. .-.  \/ .. \
+ | |  '|  /   Y   \  |'  | |
+ | \   \  \ 0 | 0 /  /   / |
+  \ '- ,\.-"""""""-./, -' /
+   ''-' /_   ^ ^   _\ '-''
+       |  \._   _./  |
+       \   \ '~' /   /
+        '._ '-=-' _.'
+           '-----'
+`
+
+func printParseErrors(out io.Writer, errs []string) {
+	io.WriteString(out, MONKEY_FACE)
+	io.WriteString(out, "Whoops! Ran into some monkey business here!\n")
+	io.WriteString(out, " parser errors:\n")
+	for _, msg := range errs {
+		io.WriteString(out, "\t"+msg+"\n")
+	}
+
 }

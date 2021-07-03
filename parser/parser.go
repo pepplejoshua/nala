@@ -122,7 +122,7 @@ func (p *Parser) parseStatement() ast.Statement {
 }
 
 func (p *Parser) parseLetStatement() *ast.LetStatement {
-	defer untrace(trace("parseLetStatement"))
+	// defer untrace(trace("parseLetStatement"))
 	stmt := &ast.LetStatement{Token: p.curToken}
 
 	// this makes sure the next token is an IDENT token
@@ -139,16 +139,6 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 	p.nextToken()
 	stmt.Value = p.parseExpression(LOWEST)
 
-	// TODO: Expressions will be handled here. We skip over it for now
-	// there is a bug here. If u skip the terminating ';' it enters an infinite loop
-	// for !p.curTokenIs(token.SEMICOLON) {
-	// 	if !p.curTokenIs(token.EOF) {
-	// 		p.nextToken()
-	// 	} else {
-	// 		break
-	// 	}
-	// }
-
 	if p.peekTokenIs(token.SEMICOLON) {
 		p.nextToken()
 	}
@@ -157,28 +147,19 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 }
 
 func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
-	defer untrace(trace("parseReturnStatement"))
 	stmt := &ast.ReturnStatement{Token: p.curToken}
 
-	// TODO: Expressions will be handled here. We skip over it for now
-	// there is a bug here. If u skip the terminating ';' it enters an infinite loop
-	for !p.curTokenIs(token.SEMICOLON) {
-		if !p.curTokenIs(token.EOF) {
-			p.nextToken()
-		} else {
-			break
-		}
-	}
+	p.nextToken()
+	stmt.ReturnValue = p.parseExpression(LOWEST)
 
-	if !p.expectCur(token.SEMICOLON) {
-		return nil
+	if p.peekTokenIs(token.SEMICOLON) {
+		p.nextToken()
 	}
 
 	return stmt
 }
 
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
-	defer untrace(trace("parseExpressionStatement"))
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
 
 	stmt.Expression = p.parseExpression(LOWEST)
@@ -191,7 +172,6 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 }
 
 func (p *Parser) parseExpression(precedence int) ast.Expression {
-	defer untrace(trace("parseExpression"))
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
 		p.noPrefixParseFnError()
@@ -224,12 +204,10 @@ func (p *Parser) parseGroupedExpression() ast.Expression {
 }
 
 func (p *Parser) parseIdentifier() ast.Expression {
-	defer untrace(trace("parseIdentifier"))
 	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 }
 
 func (p *Parser) parseIntegerLiteral() ast.Expression {
-	defer untrace(trace("parseIntegerLiteral"))
 	lit := &ast.IntegerLiteral{Token: p.curToken}
 
 	val, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
@@ -243,7 +221,6 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 }
 
 func (p *Parser) parseBoolean() ast.Expression {
-	defer untrace(trace("parseBoolean"))
 	return &ast.Boolean{
 		Token: p.curToken,
 		Value: p.curTokenIs(token.TRUE),
@@ -251,7 +228,6 @@ func (p *Parser) parseBoolean() ast.Expression {
 }
 
 func (p *Parser) parsePrefixExpression() ast.Expression {
-	defer untrace(trace("parsePrefixExpression"))
 	expression := &ast.PrefixExpression{
 		Token:    p.curToken,
 		Operator: p.curToken.Literal,
@@ -263,7 +239,6 @@ func (p *Parser) parsePrefixExpression() ast.Expression {
 }
 
 func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
-	defer untrace(trace("parseInfixExpression"))
 	expression := &ast.InfixExpression{
 		Token:    p.curToken,
 		Operator: p.curToken.Literal,

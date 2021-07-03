@@ -11,6 +11,12 @@ type IdentifierTest struct {
 	ID string
 }
 
+type LetStatementTest struct {
+	input         string
+	expectedID    string
+	expectedValue interface{}
+}
+
 type PrefixTest struct {
 	input    string
 	operator string
@@ -47,41 +53,35 @@ type FuncParameterTest struct {
 }
 
 func TestLetStatements(t *testing.T) {
-	input := `
-	let x = 5;
-	let y = 200;
-	let someName25 = 25;
-	`
-	l := lexer.New(input)
-	p := New(l)
-
-	program := p.ParseProgram()
-	checkParseErrors(t, p)
-
-	if program == nil {
-		t.Fatalf("ParseProgram() returned nil")
+	tests := []LetStatementTest{
+		{"let x = 5;", "x", 5},
+		{"let y = true;", "y", true},
+		{"let foobar = y;", "foobar", "y"},
 	}
-	if len(program.Statements) != 3 {
-		t.Fatalf("program.Statements does not contain 3 statements. got=%d", len(program.Statements))
-	}
+	for _, tt := range tests {
+		l := lexer.New(tt.input)
+		p := New(l)
 
-	tests := []IdentifierTest{
-		{"x"},
-		{"y"},
-		{"someName25"},
-	}
+		program := p.ParseProgram()
+		checkParseErrors(t, p)
 
-	for i, tt := range tests {
-		stmt := program.Statements[i]
+		if program == nil {
+			t.Fatalf("ParseProgram() returned nil")
+		}
+		if len(program.Statements) != 1 {
+			t.Fatalf("program.Statements does not contain any statements. got=%d", len(program.Statements))
+		}
 
-		if !testLetStatement(t, stmt, tt.ID) {
+		stmt := program.Statements[0]
+		if !testLetStatement(t, stmt, tt.expectedID, tt.expectedValue) {
 			return
 		}
+
 	}
 }
 
 // handles testing for the Name (*Identifier) portion of a LetStatement
-func testLetStatement(t *testing.T, s ast.Statement, name string) bool {
+func testLetStatement(t *testing.T, s ast.Statement, name string, value interface{}) bool {
 	if s.TokenLiteral() != "let" {
 		t.Errorf("s.TokenLiteral() not 'let'. got=%q", s.TokenLiteral())
 		return false
@@ -95,13 +95,12 @@ func testLetStatement(t *testing.T, s ast.Statement, name string) bool {
 		t.Errorf("s not *ast.LetStatement. got=%T", s)
 		return false
 	}
-	if letStmt.Name.Value != name {
-		t.Errorf("letStmt.Name.Value not '%s'. got=%s", name, letStmt.Name.Value)
-		return false
-	}
 
 	if letStmt.Name.TokenLiteral() != name {
-		t.Errorf("s.Name not '%s'. got=%s", name, letStmt.Name)
+		t.Errorf("letStmt.Name.TokenLiteral() is not %s. got=%s", name, letStmt.TokenLiteral())
+		return false
+	}
+	if !testLiteralExpression(t, letStmt.Value, value) {
 		return false
 	}
 
