@@ -6,6 +6,7 @@ import (
 	"io"
 	"nala/evaluator"
 	"nala/lexer"
+	"nala/object"
 	"nala/parser"
 )
 
@@ -14,6 +15,7 @@ const PROMPT = "=> "
 func Start(in io.Reader, out io.Writer) {
 	// this wraps the input with a Buffer that we can Scan?
 	scanner := bufio.NewScanner(in)
+	env := object.NewEnvironment()
 
 	for {
 		fmt.Print(PROMPT)
@@ -40,7 +42,7 @@ func Start(in io.Reader, out io.Writer) {
 		if len(p.Errors()) != 0 {
 			printParseErrors(out, p.Errors())
 		}
-		res := evaluator.Eval(program)
+		res := evaluator.Eval(program, env)
 
 		if res != nil {
 			io.WriteString(out, res.Inspect()+"\n")

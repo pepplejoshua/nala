@@ -14,5 +14,6 @@ func main() {
 	}
 	fmt.Printf("Hello %s! This is Nala programming language!\n", user.Username)
 	fmt.Printf("Feel free to type commands\n")
+	fmt.Printf("Enter '.q' to quit the REPL.\n")
 	repl.Start(os.Stdin, os.Stdout)
 }

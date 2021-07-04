@@ -12,21 +12,28 @@ var (
 	FALSE = &object.Boolean{Value: false}
 )
 
-func Eval(node ast.Node) object.Object {
+func Eval(node ast.Node, env *object.Environment) object.Object {
+
 	switch node := node.(type) {
 	// Statements
 	case *ast.Program:
-		return evalProgram(node.Statements)
+		return evalProgram(node.Statements, env)
 	case *ast.ExpressionStatement:
-		return Eval(node.Expression)
+		return Eval(node.Expression, env)
 	case *ast.BlockStatement:
-		return evalBlockStatements(node.Statements)
+		return evalBlockStatements(node.Statements, env)
 	case *ast.ReturnStatement:
-		val := Eval(node.ReturnValue)
+		val := Eval(node.ReturnValue, env)
 		if isErrorObj(val) {
 			return val
 		}
 		return &object.ReturnValue{Value: val}
+	case *ast.LetStatement:
+		val := Eval(node.Value, env)
+		if isErrorObj(val) {
+			return val
+		}
+		env.Set(node.Name.Value, val)
 
 	// Expressions
 	case *ast.IntegerLiteral:
@@ -34,34 +41,36 @@ func Eval(node ast.Node) object.Object {
 	case *ast.Boolean:
 		return getBooleanObject(node.Value)
 	case *ast.PrefixExpression:
-		right := Eval(node.Right)
+		right := Eval(node.Right, env)
 		if isErrorObj(right) {
 			return right
 		}
 		return evalPrefixExpression(node.Operator, right)
 	case *ast.InfixExpression:
-		left := Eval(node.Left)
+		left := Eval(node.Left, env)
 		if isErrorObj(left) {
 			return left
 		}
-		right := Eval(node.Right)
+		right := Eval(node.Right, env)
 		if isErrorObj(right) {
 			return right
 		}
 		return evalInfixExpression(left, node.Operator, right)
 	case *ast.IfExpression:
-		return evalIfExpression(node)
+		return evalIfExpression(node, env)
+	case *ast.Identifier:
+		return evalIdentifier(node, env)
 	}
 
 	return nil
 }
 
 // handles top level evaluation of program
-func evalProgram(stmts []ast.Statement) object.Object {
+func evalProgram(stmts []ast.Statement, env *object.Environment) object.Object {
 	var res object.Object
 
 	for _, stmt := range stmts {
-		res = Eval(stmt)
+		res = Eval(stmt, env)
 
 		// if we have found a return or error statement,
 		// we want to return prematurely without eval of remaining statements
@@ -78,11 +87,11 @@ func evalProgram(stmts []ast.Statement) object.Object {
 // handles evaluating BlockStatements (nested or not) with potential return statements
 // if it runs into a return statement, it returns it.
 // top level evalProgram will unwrap it and return to user.
-func evalBlockStatements(stmts []ast.Statement) object.Object {
+func evalBlockStatements(stmts []ast.Statement, env *object.Environment) object.Object {
 	var res object.Object
 
 	for _, stmt := range stmts {
-		res = Eval(stmt)
+		res = Eval(stmt, env)
 
 		// if we have found a return statement, we want to return prematurely without
 		// eval of remaining statements
@@ -96,19 +105,28 @@ func evalBlockStatements(stmts []ast.Statement) object.Object {
 	return res
 }
 
-func evalIfExpression(node *ast.IfExpression) object.Object {
-	cond := Eval(node.Condition)
+func evalIfExpression(node *ast.IfExpression, env *object.Environment) object.Object {
+	cond := Eval(node.Condition, env)
 	if isErrorObj(cond) {
 		return cond
 	}
 
 	if isTruthy(cond) {
-		return Eval(node.Consequence)
+		return Eval(node.Consequence, env)
 	} else if node.Alternative != nil {
-		return Eval(node.Alternative)
+		return Eval(node.Alternative, env)
 	} else {
 		return NIL
 	}
+}
+
+func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object {
+	val, ok := env.Get(node.Value)
+	if !ok {
+		return newError("identifier not found: %s", node.Value)
+	}
+
+	return val
 }
 
 func evalPrefixExpression(operator string, right object.Object) object.Object {

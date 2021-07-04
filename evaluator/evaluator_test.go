@@ -51,7 +51,8 @@ func testEval(input string) object.Object {
 	l := lexer.New(input)
 	p := parser.New(l)
 	prog := p.ParseProgram()
-	return Eval(prog)
+	env := object.NewEnvironment()
+	return Eval(prog, env)
 }
 
 func testIntegerObject(t *testing.T, evalObj object.Object, expected int64) bool {
@@ -226,6 +227,14 @@ func TestEvalErrorHandling(t *testing.T) {
 			return 1;`,
 			"unknown operator: BOOLEAN % BOOLEAN",
 		},
+		{
+			"pepple;",
+			"identifier not found: pepple",
+		},
+		{
+			"tamunoiwarilama",
+			"identifier not found: tamunoiwarilama",
+		},
 	}
 
 	for _, tt := range tests {
@@ -240,5 +249,24 @@ func TestEvalErrorHandling(t *testing.T) {
 		if err.Message != tt.expected {
 			t.Errorf("wrong error message. expected=%q, got=%q", tt.expected, err.Message)
 		}
+	}
+}
+
+func TestEvalLetStatements(t *testing.T) {
+	tests := []GenericTest{
+		{"let joshua = 5; joshua;", 5},
+		{"let a = 5 * 5; a;", 25},
+		{"let a = 5; let b = a; b;", 5},
+		{"let a = 5; let b = a; let c = a + b + 5; c", 15},
+		{"let joshua = false; joshua;", false},
+		{"let a = 1 < 2; a;", true},
+		{"let a = true; let b = a; b;", true},
+		{"let a = false; let b = a; b;", false},
+		{"let a = true; let b = a; let c = a == b != false; c", true},
+	}
+
+	for _, tt := range tests {
+		evald := testEval(tt.input)
+		testEvalLiteral(t, evald, tt.expected)
 	}
 }
