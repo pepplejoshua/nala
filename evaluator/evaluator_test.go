@@ -338,7 +338,7 @@ func TestFunctionApplication(t *testing.T) {
 		{"let lessThan = fn(x, y) { x < y }; lessThan(4, 5)", true},
 		{"let lessThan = fn(x, y) { x < y }; lessThan(10, 5)", false},
 		{"let equal? = fn(x, y) { !(x != y) }; equal?(2, 3)", false},
-		{"fn(x) { 3 * x }(5)", 5},
+		{"fn(x) { 3 * x }(5)", 15},
 		{"fn(x, y) { y * x }(5, 3)", 15},
 	}
 
@@ -346,3 +346,19 @@ func TestFunctionApplication(t *testing.T) {
 		testEvalLiteral(t, testEval(tt.input), tt.expected)
 	}
 }
+
+func TestClosures(t *testing.T) {
+	input := `
+	let adderTemplate* = fn(x) {
+		fn(y) { x + y }
+	};
+	let addTwo = adderTemplate*(2);
+	addTwo(8)
+	`
+
+	testIntegerObject(t, testEval(input), 10)
+}
+
+// let adderTemplate* = fn(x) { fn(y) { x + y } };
+// let addTwo = adderTemplate*(2);
+// addTwo(8)

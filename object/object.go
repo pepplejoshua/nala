@@ -87,16 +87,26 @@ func (f *Function) Inspect() string {
 type NameObjectPairs map[string]Object
 
 type Environment struct {
-	store NameObjectPairs
+	store   NameObjectPairs
+	extends *Environment
+}
+
+func NewEnclosedEnvironment(outer *Environment) *Environment {
+	env := NewEnvironment()
+	env.extends = outer
+	return env
 }
 
 func NewEnvironment() *Environment {
 	s := make(NameObjectPairs)
-	return &Environment{store: s}
+	return &Environment{store: s, extends: nil}
 }
 
 func (e *Environment) Get(name string) (Object, bool) {
 	obj, ok := e.store[name]
+	if !ok && e.extends != nil {
+		obj, ok = e.extends.Get(name)
+	}
 	return obj, ok
 }
 

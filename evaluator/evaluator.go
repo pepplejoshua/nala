@@ -64,9 +64,55 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		params := node.Parameters
 		body := node.Body
 		return &object.Function{Parameters: params, Env: env, Body: body}
+	case *ast.CallExpression:
+		fn := Eval(node.Function, env)
+		if isErrorObj(fn) {
+			return fn
+		}
+		args := evalExpressions(node.Arguments, env)
+		if len(args) == 1 && isErrorObj(args[0]) {
+			return args[0]
+		}
+
+		return applyFunction(fn, args)
 	}
 
 	return nil
+}
+
+func applyFunction(function object.Object, args []object.Object) object.Object {
+	fn, ok := function.(*object.Function)
+	if !ok {
+		return newError("not a function: %s", fn.Type())
+	}
+
+	// do parameter counting to make sure right number of arguments were passed
+	if len(args) != len(fn.Parameters) {
+		err := "number of parameters in call doesn't match function definition."
+		err += "\nrequired %d, got %d."
+		return newError(err, len(fn.Parameters), len(args))
+	}
+
+	// this creates a static environment binding, as fn.env is the lexical env
+	// from when it was defined vs whatever the current env is at the point of this call.
+	// passing that env instead would be dynamic environment binding
+	extendedEnv := extendFunctionEnv(fn, args)
+	evald := Eval(fn.Body, extendedEnv)
+
+	if retVal, ok := evald.(*object.ReturnValue); ok {
+		return retVal.Value
+	}
+	return evald
+}
+
+func extendFunctionEnv(fn *object.Function, args []object.Object) *object.Environment {
+	env := object.NewEnclosedEnvironment(fn.Env)
+
+	for paramI, param := range fn.Parameters {
+		env.Set(param.Value, args[paramI])
+	}
+
+	return env
 }
 
 // handles top level evaluation of program
@@ -85,6 +131,22 @@ func evalProgram(stmts []ast.Statement, env *object.Environment) object.Object {
 			return res
 		}
 	}
+	return res
+}
+
+// this handles evaluating a function call's arguments (Expressions)
+// and returns error if any arises
+func evalExpressions(exps []ast.Expression, env *object.Environment) []object.Object {
+	var res []object.Object
+
+	for _, e := range exps {
+		evald := Eval(e, env)
+		if isErrorObj(evald) {
+			return []object.Object{evald}
+		}
+		res = append(res, evald)
+	}
+
 	return res
 }
 
