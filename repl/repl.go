@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"nala/evaluator"
 	"nala/lexer"
 	"nala/parser"
 )
@@ -38,9 +39,11 @@ func Start(in io.Reader, out io.Writer) {
 		program := p.ParseProgram()
 		if len(p.Errors()) != 0 {
 			printParseErrors(out, p.Errors())
-		} else {
-			io.WriteString(out, program.String())
-			io.WriteString(out, "\n")
+		}
+		res := evaluator.Eval(program)
+
+		if res != nil {
+			io.WriteString(out, res.Inspect()+"\n")
 		}
 	}
 }
