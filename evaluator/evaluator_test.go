@@ -22,6 +22,13 @@ type GenericTest struct {
 	expected interface{}
 }
 
+type FunctionTest struct {
+	input        string
+	paramLen     int
+	params       []string
+	expectedBody string
+}
+
 func TestEvalIntegerExpression(t *testing.T) {
 	tests := []IntegerTest{
 		{"5", 5},
@@ -268,5 +275,74 @@ func TestEvalLetStatements(t *testing.T) {
 	for _, tt := range tests {
 		evald := testEval(tt.input)
 		testEvalLiteral(t, evald, tt.expected)
+	}
+}
+
+func TestFunctionObject(t *testing.T) {
+	tests := []FunctionTest{
+		{
+			input:        "fn(x) { x + 2; };",
+			paramLen:     1,
+			params:       []string{"x"},
+			expectedBody: "(x + 2)",
+		},
+		{
+			input:        "fn(x, y) { x + y; };",
+			paramLen:     2,
+			params:       []string{"x", "y"},
+			expectedBody: "(x + y)",
+		},
+		{
+			input:        "fn(x, y, z) { x + y; z };",
+			paramLen:     3,
+			params:       []string{"x", "y", "z"},
+			expectedBody: "(x + y)z",
+		},
+		{
+			input:        "fn(x, y, z) { let z = x + y; return z; y};",
+			paramLen:     3,
+			params:       []string{"x", "y", "z"},
+			expectedBody: "let z = (x + y);return z;y",
+		},
+	}
+
+	for _, tt := range tests {
+		evald := testEval(tt.input)
+
+		fn, ok := evald.(*object.Function)
+		if !ok {
+			t.Fatalf("object is not a Function. got=%T (%+v)", evald, evald)
+		}
+
+		if len(fn.Parameters) != tt.paramLen {
+			t.Fatalf("function has wrong parameters. Parameters=%+v", fn.Parameters)
+		}
+
+		for i, p := range fn.Parameters {
+			if p.String() != tt.params[i] {
+				t.Fatalf("parameter is not '%q'. got=%q", tt.params[i], p.String())
+			}
+		}
+
+		if fn.Body.String() != tt.expectedBody {
+			t.Fatalf("body is not %q. got=%q", tt.expectedBody, fn.Body.String())
+		}
+	}
+}
+
+func TestFunctionApplication(t *testing.T) {
+	tests := []GenericTest{
+		{"let identity = fn(x) { x; }; identity(5);", 5},
+		{"let identity = fn(x) { x; }; identity(false);", false},
+		{"let double = fn(x) { x * 2; }; double(5);", 10},
+		{"let lessThan = fn(x, y) { x < y }; lessThan(4, 5)", true},
+		{"let lessThan = fn(x, y) { x < y }; lessThan(10, 5)", false},
+		{"let equal? = fn(x, y) { !(x != y) }; equal?(2, 3)", false},
+		{"fn(x) { 3 * x }(5)", 5},
+		{"fn(x, y) { y * x }(5, 3)", 15},
+	}
+
+	for _, tt := range tests {
+		testEvalLiteral(t, testEval(tt.input), tt.expected)
 	}
 }
