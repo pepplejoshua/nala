@@ -3,6 +3,7 @@ package object
 import (
 	"bytes"
 	"fmt"
+	"hash/fnv"
 	"nala/ast"
 	"strings"
 )
@@ -19,7 +20,7 @@ const (
 	STRING_OBJ       = "STRING"
 	BUILTIN_OBJ      = "BUILTIN"
 	ARRAY_OBJ        = "ARRAY"
-	DICTIONARY_OBJ   = "DICTIONARY"
+	HASHMAP_OBJ      = "HASHMAP"
 )
 
 type Object interface {
@@ -27,19 +28,44 @@ type Object interface {
 	Inspect() string
 }
 
+type Hashable interface {
+	HashKey() HashKey
+}
+
 type Integer struct {
-	Value int64
+	Value       int64
+	HashableKey *HashKey
 }
 
 func (i *Integer) Type() ObjectType { return INTEGER_OBJ }
 func (i *Integer) Inspect() string  { return fmt.Sprintf("%d", i.Value) }
+func (i *Integer) HashKey() HashKey {
+	if i.HashableKey == nil {
+		i.HashableKey = &HashKey{Type: i.Type(), HashValue: uint64(i.Value)}
+	}
+	return *i.HashableKey
+}
 
 type Boolean struct {
-	Value bool
+	Value       bool
+	HashableKey *HashKey
 }
 
 func (b *Boolean) Type() ObjectType { return BOOLEAN_OBJ }
 func (b *Boolean) Inspect() string  { return fmt.Sprintf("%t", b.Value) }
+func (b *Boolean) HashKey() HashKey {
+	if b.HashableKey == nil {
+		var val uint64
+
+		if b.Value {
+			val = 1
+		} else {
+			val = 0
+		}
+		b.HashableKey = &HashKey{Type: b.Type(), HashValue: val}
+	}
+	return *b.HashableKey
+}
 
 type Nil struct{}
 
@@ -85,11 +111,20 @@ func (f *Function) Inspect() string {
 }
 
 type String struct {
-	Value string
+	Value       string
+	HashableKey *HashKey
 }
 
 func (s *String) Type() ObjectType { return STRING_OBJ }
 func (s *String) Inspect() string  { return s.Value }
+func (s *String) HashKey() HashKey {
+	if s.HashableKey == nil {
+		h := fnv.New64a()
+		h.Write([]byte(s.Value))
+		s.HashableKey = &HashKey{Type: s.Type(), HashValue: h.Sum64()}
+	}
+	return *s.HashableKey
+}
 
 type Array struct {
 	Elements []Object
@@ -111,6 +146,45 @@ func (a *Array) Inspect() string {
 	return out.String()
 }
 
+// the key used in our HashMaps
+// hashed from true Values of Expressions
+// to prevent pointer comparison
+// TODO: cache these values so they are not recomputed everytime
+type HashKey struct {
+	Type      ObjectType
+	HashValue uint64
+}
+
+// the Value stored in a HashMap
+// contains true key:value passed by user
+type HashPair struct {
+	Key   Object
+	Value Object
+}
+
+// HashMap
+type HashMap struct {
+	Pairs map[HashKey]HashPair
+}
+
+func (hm *HashMap) Type() ObjectType { return HASHMAP_OBJ }
+func (hm *HashMap) Inspect() string {
+	var out bytes.Buffer
+
+	pairs := []string{}
+
+	for _, p := range hm.Pairs {
+		pairs = append(pairs, fmt.Sprintf("%s: %s",
+			p.Key.Inspect(), p.Value.Inspect()))
+	}
+
+	out.WriteString("{")
+	out.WriteString(strings.Join(pairs, ", "))
+	out.WriteString("}")
+
+	return out.String()
+}
+
 type BuiltInFunction func(args ...Object) Object
 
 type BuiltIn struct {
@@ -122,6 +196,7 @@ func (b *BuiltIn) Inspect() string  { return "builtin function" }
 
 // func () Type() ObjectType { return }
 // func () Inspect() string { return }
+// func () HashKey() HashKey { return }
 
 // Environment and Binding
 type NameObjectPairs map[string]Object

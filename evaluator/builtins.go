@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"fmt"
 	"nala/object"
 )
 
@@ -125,6 +126,18 @@ func nala_push(args ...object.Object) object.Object {
 	return &object.Array{Elements: nElems}
 }
 
+func nala_puts(args ...object.Object) object.Object {
+	if argumentCountMatch(len(args), 0) {
+		fmt.Println()
+		return NIL
+	}
+
+	for _, arg := range args {
+		fmt.Println(arg.Inspect())
+	}
+	return NIL
+}
+
 // export builtins to REPL
 var builtins = MapofIDtoBuiltin{
 	"len":   &object.BuiltIn{Fn: nala_len},
@@ -133,4 +146,5 @@ var builtins = MapofIDtoBuiltin{
 	"last":  &object.BuiltIn{Fn: nala_last},
 	"rest":  &object.BuiltIn{Fn: nala_rest},
 	"push":  &object.BuiltIn{Fn: nala_push},
+	"puts":  &object.BuiltIn{Fn: nala_puts},
 }

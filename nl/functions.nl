@@ -28,3 +28,5 @@ let sum = fn(arr) {
 let product = fn(arr) {
     reduce(arr, 1, fn(in, el) { in * el })
 };
+
+let info = {"name": "Nala", "version": "0.0.9", "author": "Iwarilama"};

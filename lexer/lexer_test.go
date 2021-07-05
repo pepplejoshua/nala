@@ -34,6 +34,7 @@ func TestNextToken(t *testing.T) {
 	"foobar";
 	"foo bar"
 	[1, 2, 10 > 5];
+	{ "foo" : "bar" }
 	`
 
 	// generates an array of expected tokens from that initializer list
@@ -135,6 +136,12 @@ func TestNextToken(t *testing.T) {
 		{token.INT, "5"},
 		{token.RBRACKET, "]"},
 		{token.SEMICOLON, ";"},
+
+		{token.LBRACE, "{"},
+		{token.STRING, "foo"},
+		{token.COLON, ":"},
+		{token.STRING, "bar"},
+		{token.RBRACE, "}"},
 
 		{token.EOF, ""},
 	}

@@ -1,6 +1,8 @@
 package lexer
 
-import "nala/token"
+import (
+	"nala/token"
+)
 
 type Lexer struct {
 	input        string
@@ -64,6 +66,8 @@ func (l *Lexer) NextToken() token.Token {
 		tok = newToken(token.RBRACE, l.ch)
 	case ',':
 		tok = newToken(token.COMMA, l.ch)
+	case ':':
+		tok = newToken(token.COLON, l.ch)
 	case '+':
 		tok = newToken(token.PLUS, l.ch)
 	case '-':
@@ -136,11 +140,15 @@ func (l *Lexer) readString() string {
 	position := l.position + 1
 	for {
 		l.readChar()
-		if l.ch == '"' || l.ch == '0' {
+		if isSpecialChar(l.ch) || l.ch == '.' {
+			continue
+		}
+		if l.ch == '"' || l.position > len(l.input) {
 			break
 		}
 	}
-	return l.input[position:l.position]
+	str := l.input[position:l.position]
+	return str
 }
 
 func (l *Lexer) skipWhitespace() {

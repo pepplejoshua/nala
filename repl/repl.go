@@ -86,6 +86,8 @@ func Start(in io.Reader, out io.Writer) {
 			res := evaluator.Eval(program, env)
 			if res != nil {
 				io.WriteString(out, res.Inspect()+"\n")
+			} else {
+				io.WriteString(out, "NIL\n")
 			}
 		}
 	}
@@ -117,7 +119,7 @@ func readNalaFunctions(env *object.Environment, out io.Writer) {
 	p := parser.New(l)
 
 	// for tok := pl.NextToken(); tok.Type != token.EOF; tok = pl.NextToken() {
-	// 	fmt.Printf("%+v\n", tok)
+	// fmt.Printf("%+v\n", tok)
 	// }
 
 	prog := p.ParseProgram()
