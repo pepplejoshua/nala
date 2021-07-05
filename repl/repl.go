@@ -124,13 +124,13 @@ func readNalaFunctions(env *object.Environment, out io.Writer) {
 
 	prog := p.ParseProgram()
 	if hasErrors(p, out) {
-		io.WriteString(out, fmt.Sprintf("Couldn't read Nala Functions Source from %q", FUNCSPATH))
+		io.WriteString(out, fmt.Sprintf("Couldn't read Nala Functions Source from %q\n", FUNCSPATH))
 		printParseErrors(out, p.Errors())
 	}
 
 	evaluator.Eval(prog, env)
 	// if r != nil {
-	io.WriteString(out, "Loaded Nala Functions Source!\n\n")
+	// io.WriteString(out, "Loaded Nala Functions Source!\n\n")
 	// } else {
 	// io.WriteString(out, "Couldn't load and evaluate source...\n\n")
 	// }

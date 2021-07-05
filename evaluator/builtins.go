@@ -1,8 +1,10 @@
 package evaluator
 
 import (
+	"bufio"
 	"fmt"
 	"nala/object"
+	"os"
 )
 
 type MapofIDtoBuiltin map[string]*object.BuiltIn
@@ -47,6 +49,8 @@ func nala_object_type(args ...object.Object) object.Object {
 		return &object.String{Value: object.BUILTIN_OBJ}
 	case *object.Array:
 		return &object.String{Value: object.ARRAY_OBJ}
+	case *object.HashMap:
+		return &object.String{Value: object.HASHMAP_OBJ}
 	default:
 		return newError("object type unexpected. got %s", args[0].Type())
 	}
@@ -128,6 +132,19 @@ func nala_push(args ...object.Object) object.Object {
 
 func nala_puts(args ...object.Object) object.Object {
 	if argumentCountMatch(len(args), 0) {
+		fmt.Print()
+		return NIL
+	}
+
+	for _, arg := range args {
+		fmt.Print(arg.Inspect())
+	}
+	fmt.Println()
+	return NIL
+}
+
+func nala_putl(args ...object.Object) object.Object {
+	if argumentCountMatch(len(args), 0) {
 		fmt.Println()
 		return NIL
 	}
@@ -138,13 +155,104 @@ func nala_puts(args ...object.Object) object.Object {
 	return NIL
 }
 
+func nala_reads(args ...object.Object) object.Object {
+	if len(args) > 1 {
+		return newError("wrong number of arguments. got=%d, want at most 1", len(args))
+	}
+
+	if argumentCountMatch(len(args), 1) {
+		if args[0].Type() != object.STRING_OBJ {
+			return newError("argument to `keys` must be STRING, got %s", args[0].Type())
+		}
+
+		str := args[0].(*object.String).Value
+		fmt.Print(str)
+	}
+
+	in := os.Stdin
+	scanner := bufio.NewScanner(in)
+	scanned := scanner.Scan()
+	if !scanned {
+		return NIL
+	}
+	return &object.String{Value: scanner.Text()}
+}
+
+func nala_hashmap_keys(args ...object.Object) object.Object {
+	if !argumentCountMatch(len(args), 1) {
+		return newError("wrong number of arguments. got=%d, want=0", len(args))
+	}
+
+	if args[0].Type() != object.HASHMAP_OBJ {
+		return newError("argument to `keys` must be HASHMAP, got %s", args[0].Type())
+	}
+
+	hmap := args[0].(*object.HashMap)
+
+	elems := []object.Object{}
+
+	for _, pair := range hmap.Pairs {
+		elems = append(elems, pair.Key)
+	}
+	return &object.Array{Elements: elems}
+}
+
+func nala_hashmap_values(args ...object.Object) object.Object {
+	if !argumentCountMatch(len(args), 1) {
+		return newError("wrong number of arguments. got=%d, want=0", len(args))
+	}
+
+	if args[0].Type() != object.HASHMAP_OBJ {
+		return newError("argument to `keys` must be HASHMAP, got %s", args[0].Type())
+	}
+
+	hmap := args[0].(*object.HashMap)
+
+	elems := []object.Object{}
+
+	for _, pair := range hmap.Pairs {
+		elems = append(elems, pair.Value)
+	}
+	return &object.Array{Elements: elems}
+}
+
+func nala_hashmap_items(args ...object.Object) object.Object {
+	if !argumentCountMatch(len(args), 1) {
+		return newError("wrong number of arguments. got=%d, want=0", len(args))
+	}
+
+	if args[0].Type() != object.HASHMAP_OBJ {
+		return newError("argument to `keys` must be HASHMAP, got %s", args[0].Type())
+	}
+
+	hmap := args[0].(*object.HashMap)
+
+	elems := []object.Object{}
+
+	for _, pair := range hmap.Pairs {
+		nested_elems := []object.Object{
+			pair.Key,
+			pair.Value,
+		}
+
+		elems = append(elems, &object.Array{Elements: nested_elems})
+	}
+	return &object.Array{Elements: elems}
+}
+
 // export builtins to REPL
 var builtins = MapofIDtoBuiltin{
-	"len":   &object.BuiltIn{Fn: nala_len},
-	"type":  &object.BuiltIn{Fn: nala_object_type},
-	"first": &object.BuiltIn{Fn: nala_first},
-	"last":  &object.BuiltIn{Fn: nala_last},
-	"rest":  &object.BuiltIn{Fn: nala_rest},
-	"push":  &object.BuiltIn{Fn: nala_push},
-	"puts":  &object.BuiltIn{Fn: nala_puts},
+	"len":    &object.BuiltIn{Fn: nala_len},
+	"type":   &object.BuiltIn{Fn: nala_object_type},
+	"first":  &object.BuiltIn{Fn: nala_first},
+	"last":   &object.BuiltIn{Fn: nala_last},
+	"rest":   &object.BuiltIn{Fn: nala_rest},
+	"push":   &object.BuiltIn{Fn: nala_push},
+	"puts":   &object.BuiltIn{Fn: nala_puts},
+	"putl":   &object.BuiltIn{Fn: nala_putl},
+	"reads":  &object.BuiltIn{Fn: nala_reads},
+	"keys":   &object.BuiltIn{Fn: nala_hashmap_keys},
+	"values": &object.BuiltIn{Fn: nala_hashmap_values},
+	"items":  &object.BuiltIn{Fn: nala_hashmap_items},
+	// "loadf":  &object.BuiltIn{Fn: nala_loadf},
 }

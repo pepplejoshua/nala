@@ -1,0 +1,12 @@
+- reads() builtin to read in string from user [DONE]
+- Finish macro system.
+- More operators (infix and prefix) implemented using Macro system (or not)
+- updating HashMaps (equivalent to push() for Arrays)[DOING]
+- type conversion builtins
+- keys(), values(), items() builtins for HashMaps [DONE]
+- ternary operator a ? x : y
+- cons() builtin, {} operator for defining growing vectors (equivalent to lists in lisp)
+- first(), rest(), last() builtins for vectors
+- Make sure to keep to testing rigorously
+- Add comments (and ability to skip them, similar to skipWhitespace)
+- loadf() builtin for loading files in repl (consider using it for imports as well)
