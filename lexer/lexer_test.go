@@ -31,6 +31,8 @@ func TestNextToken(t *testing.T) {
 
 	10 == 10;
 	10 != 9;
+	"foobar";
+	"foo bar"
 	`
 
 	// generates an array of expected tokens from that initializer list
@@ -117,6 +119,10 @@ func TestNextToken(t *testing.T) {
 		{token.NOT_EQ, "!="},
 		{token.INT, "9"},
 		{token.SEMICOLON, ";"},
+
+		{token.STRING, "foobar"},
+		{token.SEMICOLON, ";"},
+		{token.STRING, "foo bar"},
 
 		{token.EOF, ""},
 	}

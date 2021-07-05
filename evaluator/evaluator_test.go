@@ -97,10 +97,15 @@ func TestEvalBooleanExpression(t *testing.T) {
 		{"1 != 2 == true", true},
 		{"false != (1 == 1)", true},
 		{"true != (2 != 1)", false},
+		{`"joshua" == "joshua"`, true},
+		{`"pepple" != "iwarilama"`, true},
+		{`"joshua" != "joshua"`, false},
+		{`"pepple" == "iwarilama"`, false},
 	}
 
 	for _, tt := range tests {
 		evaluated := testEval(tt.input)
+		t.Log(tt.input)
 		testBooleanObject(t, evaluated, tt.expected)
 	}
 }
@@ -132,6 +137,8 @@ func testEvalLiteral(t *testing.T, evalObj object.Object, expected interface{}) 
 		return testIntegerObject(t, evalObj, int64(expected))
 	case bool:
 		return testBooleanObject(t, evalObj, expected)
+	case string:
+		return testStringObject(t, evalObj, expected)
 	default:
 		return testNullObject(t, evalObj)
 	}
@@ -241,6 +248,10 @@ func TestEvalErrorHandling(t *testing.T) {
 		{
 			"tamunoiwarilama",
 			"identifier not found: tamunoiwarilama",
+		},
+		{
+			`"Hello" - "World"`,
+			"unknown operator: STRING - STRING",
 		},
 	}
 
@@ -357,6 +368,76 @@ func TestClosures(t *testing.T) {
 	`
 
 	testIntegerObject(t, testEval(input), 10)
+}
+
+func TestEvalStringLiterals(t *testing.T) {
+	tests := []GenericTest{
+		{`"hello world"`, "hello world"},
+		{`"joshua pepple"`, "joshua pepple"},
+		{`"working on compiler"`, "working on compiler"},
+		{`"a"`, "a"},
+		{`""`, ""},
+	}
+
+	for _, tt := range tests {
+		evald := testEval(tt.input)
+		testStringObject(t, evald, tt.expected)
+	}
+}
+
+func testStringObject(t *testing.T, evalObj object.Object, expected interface{}) bool {
+	str, ok := evalObj.(*object.String)
+	if !ok {
+		t.Fatalf("object is not String. got=%T (%+v)", evalObj, evalObj)
+		return false
+	}
+
+	if str.Value != expected {
+		t.Errorf("String has wrong value. expected=%q, got=%q", expected, str.Value)
+		return false
+	}
+	return true
+}
+
+func TestStringConcatenationExpressions(t *testing.T) {
+	tests := []GenericTest{
+		{`"Hello" + " " + "joshua"`, "Hello joshua"},
+		{`"Joshua" + " " + "Pepple"`, "Joshua Pepple"},
+		{`"1"+"2"`, "12"},
+		{`""+""`, ""},
+	}
+
+	for _, tt := range tests {
+		evald := testEval(tt.input)
+		testStringObject(t, evald, tt.expected)
+	}
+}
+
+func TestBuiltInFunctions(t *testing.T) {
+	tests := []GenericTest{
+		{`len("")`, 0},
+		{`len("four")`, 4},
+		{`len("hello world")`, 11},
+		{`len(1)`, "argument to `len` is not supported, got INTEGER"},
+		{`len("one", "two")`, "wrong number of arguments. got=2, want=1"},
+	}
+
+	for _, tt := range tests {
+		evald := testEval(tt.input)
+
+		switch expected := tt.expected.(type) {
+		case int:
+			testIntegerObject(t, evald, int64(expected))
+		case string:
+			err, ok := evald.(*object.Error)
+			if !ok {
+				t.Errorf("object is not Error object. got=%T (%+v)", evald, evald)
+			}
+			if err.Message != expected {
+				t.Errorf("wrong error message. expected=%q, got=%q", expected, err.Message)
+			}
+		}
+	}
 }
 
 // let adderTemplate* = fn(x) { fn(y) { x + y } };

@@ -52,6 +52,11 @@ type FuncParameterTest struct {
 	expectedParams []string
 }
 
+type GenericTest struct {
+	input    string
+	expected interface{}
+}
+
 func TestLetStatements(t *testing.T) {
 	tests := []LetStatementTest{
 		{"let x = 5;", "x", 5},
@@ -742,4 +747,50 @@ func TestCallExpressionParsing(t *testing.T) {
 	testLiteralExpression(t, exp.Arguments[0], 1)
 	testInfixExpression(t, exp.Arguments[1], 2, "*", 3)
 	testInfixExpression(t, exp.Arguments[2], 4, "+", 5)
+}
+
+func TestStringLiteralExpressions(t *testing.T) {
+	tests := []GenericTest{
+		{
+			`"hello world";`,
+			"hello world",
+		},
+		{
+			`"joshua pepple";`,
+			"joshua pepple",
+		},
+		{
+			`"stringggg";`,
+			"stringggg",
+		},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.input)
+		p := New(l)
+		prog := p.ParseProgram()
+		checkParseErrors(t, p)
+
+		stmt, ok := prog.Statements[0].(*ast.ExpressionStatement)
+		if !ok {
+			t.Fatalf("prog.Statements[0] is not *ast.ExpressionStatement. got=%T", prog.Statements[0])
+		}
+
+		if !testStringLiteral(t, stmt.Expression, tt.expected) {
+			return
+		}
+	}
+}
+
+func testStringLiteral(t *testing.T, stmt ast.Expression, expected interface{}) bool {
+	str, ok := stmt.(*ast.StringLiteral)
+	if !ok {
+		t.Fatalf("exp not *ast.StringLiteral. got=%T", stmt)
+		return false
+	}
+	if str.Value != expected {
+		t.Errorf("literal.Value not %q. got=%q", expected, str.Value)
+		return false
+	}
+	return true
 }

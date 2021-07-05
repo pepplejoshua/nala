@@ -40,6 +40,8 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		return &object.Integer{Value: node.Value}
 	case *ast.Boolean:
 		return getBooleanObject(node.Value)
+	case *ast.StringLiteral:
+		return &object.String{Value: node.Value}
 	case *ast.PrefixExpression:
 		right := Eval(node.Right, env)
 		if isErrorObj(right) {
@@ -81,28 +83,29 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 }
 
 func applyFunction(function object.Object, args []object.Object) object.Object {
-	fn, ok := function.(*object.Function)
-	if !ok {
+	switch fn := function.(type) {
+	case *object.Function:
+		// this creates a static environment binding, as fn.env is the lexical env
+		// from when it was defined vs whatever the current env is at the point of this call.
+		// passing that env instead would be dynamic environment binding
+		extendedEnv := extendFunctionEnv(fn, args)
+		evald := Eval(fn.Body, extendedEnv)
+
+		// do parameter counting to make sure right number of arguments were passed
+		if len(args) != len(fn.Parameters) {
+			err := "wrong number of arguments. got=%d, want=%d"
+			return newError(err, len(args), len(fn.Parameters))
+		}
+		if retVal, ok := evald.(*object.ReturnValue); ok {
+			return retVal.Value
+		}
+		return evald
+	case *object.BuiltIn:
+		// call the builtin
+		return fn.Fn(args...)
+	default:
 		return newError("not a function: %s", fn.Type())
 	}
-
-	// do parameter counting to make sure right number of arguments were passed
-	if len(args) != len(fn.Parameters) {
-		err := "number of parameters in call doesn't match function definition."
-		err += "\nrequired %d, got %d."
-		return newError(err, len(fn.Parameters), len(args))
-	}
-
-	// this creates a static environment binding, as fn.env is the lexical env
-	// from when it was defined vs whatever the current env is at the point of this call.
-	// passing that env instead would be dynamic environment binding
-	extendedEnv := extendFunctionEnv(fn, args)
-	evald := Eval(fn.Body, extendedEnv)
-
-	if retVal, ok := evald.(*object.ReturnValue); ok {
-		return retVal.Value
-	}
-	return evald
 }
 
 func extendFunctionEnv(fn *object.Function, args []object.Object) *object.Environment {
@@ -187,12 +190,16 @@ func evalIfExpression(node *ast.IfExpression, env *object.Environment) object.Ob
 }
 
 func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object {
-	val, ok := env.Get(node.Value)
-	if !ok {
-		return newError("identifier not found: %s", node.Value)
+	if val, ok := env.Get(node.Value); ok {
+		return val
 	}
 
-	return val
+	// allows us use identifiers to access builtin functions
+	if builtin, ok := builtins[node.Value]; ok {
+		return builtin
+	}
+
+	return newError("identifier not found: %s", node.Value)
 }
 
 func evalPrefixExpression(operator string, right object.Object) object.Object {
@@ -235,6 +242,8 @@ func evalInfixExpression(left object.Object, operator string, right object.Objec
 		return evalIntegerInfixExpression(left, operator, right)
 	case operandTypeChecks(left.Type(), right.Type(), object.BOOLEAN_OBJ):
 		return evalBooleanInfixExpression(left, operator, right)
+	case operandTypeChecks(left.Type(), right.Type(), object.STRING_OBJ):
+		return evalStringInfixExpression(left, operator, right)
 	default:
 		if left.Type() != right.Type() {
 			return newError("type mismatch: %s %s %s", left.Type(), operator, right.Type())
@@ -350,6 +359,39 @@ func evalBoolEqualityInfixExpression(left object.Object, right object.Object) ob
 func evalBoolInequalityInfixExpression(left object.Object, right object.Object) object.Object {
 	lval := left.(*object.Boolean).Value
 	rval := right.(*object.Boolean).Value
+	return getBooleanObject(lval != rval)
+}
+
+func evalStringInfixExpression(left object.Object, operator string,
+	right object.Object) object.Object {
+	switch operator {
+	case "+":
+		return evalStringConcatenationInfixExpression(left, operator, right)
+	case "==":
+		return evalStringEqualityInfixExpression(left, right)
+	case "!=":
+		return evalStringInequalityInfixExpression(left, right)
+	default:
+		return newError("unknown operator: %s %s %s", left.Type(), operator, right.Type())
+	}
+}
+
+func evalStringConcatenationInfixExpression(left object.Object, operator string,
+	right object.Object) object.Object {
+	lVal := left.(*object.String).Value
+	rVal := right.(*object.String).Value
+	return &object.String{Value: lVal + rVal}
+}
+
+func evalStringEqualityInfixExpression(left object.Object, right object.Object) object.Object {
+	lval := left.(*object.String).Value
+	rval := right.(*object.String).Value
+	return getBooleanObject(lval == rval)
+}
+
+func evalStringInequalityInfixExpression(left object.Object, right object.Object) object.Object {
+	lval := left.(*object.String).Value
+	rval := right.(*object.String).Value
 	return getBooleanObject(lval != rval)
 }
 
