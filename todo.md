@@ -1,7 +1,8 @@
 - reads() builtin to read in string from user [DONE]
 - Finish macro system.
 - More operators (infix and prefix) implemented using Macro system (or not)
-- updating HashMaps (equivalent to push() for Arrays)[DOING]
+- updating HashMaps (equivalent to push() for Arrays)[DONE]
+- copy() for HashMaps and Arrays [DONE]
 - type conversion builtins
 - keys(), values(), items() builtins for HashMaps [DONE]
 - ternary operator a ? x : y

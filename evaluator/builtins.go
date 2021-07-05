@@ -240,6 +240,54 @@ func nala_hashmap_items(args ...object.Object) object.Object {
 	return &object.Array{Elements: elems}
 }
 
+func nala_hashmap_insert(args ...object.Object) object.Object {
+	if !argumentCountMatch(len(args), 3) {
+		return newError("wrong number of arguments. got=%d", len(args))
+	}
+
+	if args[0].Type() != object.HASHMAP_OBJ {
+		return newError("argument to `keys` must be HASHMAP, got %s", args[0].Type())
+	}
+	hmap := args[0].(*object.HashMap)
+	hashKey, ok := args[1].(object.Hashable)
+	if !ok {
+		return newError("unusable as hash key: %s", args[1].Type())
+	}
+
+	val := args[2]
+	hsh := hashKey.HashKey()
+	hmap.Pairs[hsh] = object.HashPair{Key: hashKey.(object.Object), Value: val}
+	return NIL
+}
+
+func nala_copy(args ...object.Object) object.Object {
+	if !argumentCountMatch(len(args), 1) {
+		return newError("wrong number of arguments. got=%d", len(args))
+	}
+
+	switch obj := args[0].(type) {
+	case *object.Array:
+		lent := len(obj.Elements)
+		if lent > 0 {
+			nCopy := make([]object.Object, lent)
+			copy(nCopy, obj.Elements)
+			return &object.Array{Elements: nCopy}
+		}
+		return &object.Array{Elements: obj.Elements}
+	case *object.HashMap:
+		pairs := make(map[object.HashKey]object.HashPair)
+
+		for k, pair := range obj.Pairs {
+			key := pair.Key
+			val := pair.Value
+			pairs[k] = object.HashPair{Key: key, Value: val}
+		}
+		return &object.HashMap{Pairs: pairs}
+	default:
+		return newError("argument to `copy` is not supported, got %s", obj.Type())
+	}
+}
+
 // export builtins to REPL
 var builtins = MapofIDtoBuiltin{
 	"len":    &object.BuiltIn{Fn: nala_len},
@@ -254,5 +302,9 @@ var builtins = MapofIDtoBuiltin{
 	"keys":   &object.BuiltIn{Fn: nala_hashmap_keys},
 	"values": &object.BuiltIn{Fn: nala_hashmap_values},
 	"items":  &object.BuiltIn{Fn: nala_hashmap_items},
+	"ins":    &object.BuiltIn{Fn: nala_hashmap_insert},
+	"copy":   &object.BuiltIn{Fn: nala_copy},
+	// "sb":     &object.BuiltIn{Fn: nala_showbuiltins},
+	// "si":     &object.BuiltIn{Fn: nala_showbuiltin_info},
 	// "loadf":  &object.BuiltIn{Fn: nala_loadf},
 }
