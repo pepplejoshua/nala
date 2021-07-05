@@ -431,11 +431,55 @@ func TestBuiltInFunctions(t *testing.T) {
 		case string:
 			err, ok := evald.(*object.Error)
 			if !ok {
-				t.Errorf("object is not Error object. got=%T (%+v)", evald, evald)
+				t.Errorf("object is not an Error object. got=%T (%+v)", evald, evald)
 			}
 			if err.Message != expected {
 				t.Errorf("wrong error message. expected=%q, got=%q", expected, err.Message)
 			}
+		}
+	}
+}
+
+func TestArrayLiterals(t *testing.T) {
+	input := "[1, 2 * 2, 3 + 3]"
+
+	evald := testEval(input)
+	res, ok := evald.(*object.Array)
+	if !ok {
+		t.Errorf("object is not an Array object. got=%T (%+v)", evald, evald)
+	}
+
+	if len(res.Elements) != 3 {
+		t.Fatalf("array has wrong num of elements. got=%d", len(res.Elements))
+	}
+
+	testIntegerObject(t, res.Elements[0], 1)
+	testIntegerObject(t, res.Elements[1], 4)
+	testIntegerObject(t, res.Elements[2], 6)
+}
+
+func TestArrayIndexExpressions(t *testing.T) {
+	tests := []GenericTest{
+		{"[1, 2, 3][0]", 1},
+		{"[1, 2, 3][1]", 2},
+		{"[1, 2, 3][2]", 3},
+		{"let i = 0; [1, 2, 3][i]", 1},
+		{"[1, 2, 3][0]", 1},
+		{"[1, 2, 3][1+1]", 3},
+		{"let arr = [1, 2, 3, 4]; arr[3]", 4},
+		{"let arr = [1, 2, 3, 4]; arr[3] + arr[1] + arr[0]", 7},
+		{"let arr = [1, 2, 3, 4]; let i = arr[0]; arr[i]", 2},
+		{"[1, 2, 3][3]", nil},
+		{"[1, 2, 3][-1]", nil},
+	}
+
+	for _, tt := range tests {
+		eval := testEval(tt.input)
+		Int, ok := tt.expected.(int)
+		if ok {
+			testIntegerObject(t, eval, int64(Int))
+		} else {
+			testNullObject(t, eval)
 		}
 	}
 }

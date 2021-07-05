@@ -402,6 +402,14 @@ func TestOperatorPrecedenceParsing(t *testing.T) {
 			"2 / (5 + 5)",
 			"(2 / (5 + 5))",
 		},
+		{
+			"a * [1, 2, 3, 4][b * c] * d",
+			"((a * ([1, 2, 3, 4][(b * c)])) * d)",
+		},
+		{
+			"add(a * b[2], b[1], 2 * [1, 2][1])",
+			"add((a * (b[2])), (b[1]), (2 * ([1, 2][1])))",
+		},
 	}
 
 	for _, tt := range tests {
@@ -793,4 +801,57 @@ func testStringLiteral(t *testing.T, stmt ast.Expression, expected interface{}) 
 		return false
 	}
 	return true
+}
+
+func TestParsingArrayLiterals(t *testing.T) {
+	input := "[1, 2 * 2, 3 + 3]"
+
+	l := lexer.New(input)
+	p := New(l)
+	prog := p.ParseProgram()
+	checkParseErrors(t, p)
+
+	stmt, ok := prog.Statements[0].(*ast.ExpressionStatement)
+	if !ok {
+		t.Fatalf("prog.Statements[0] is not *ast.ExpressionStatement. got=%T", prog.Statements[0])
+	}
+	arr, ok := stmt.Expression.(*ast.ArrayLiteral)
+	if !ok {
+		t.Fatalf("exp is not ast.ArrayLiteral. got=%T", stmt.Expression)
+	}
+
+	if len(arr.Elements) != 3 {
+		t.Fatalf("len(arr.Elements) not 3. got=%d", len(arr.Elements))
+	}
+
+	testIntegerLiteral(t, arr.Elements[0], 1)
+	testInfixExpression(t, arr.Elements[1], 2, "*", 2)
+	testInfixExpression(t, arr.Elements[2], 3, "+", 3)
+}
+
+func TestParsingIndexExpressions(t *testing.T) {
+	input := "arr[1 + 1]"
+
+	l := lexer.New(input)
+	p := New(l)
+	prog := p.ParseProgram()
+	checkParseErrors(t, p)
+
+	stmt, ok := prog.Statements[0].(*ast.ExpressionStatement)
+	if !ok {
+		t.Fatalf("prog.Statements[0] is not *ast.ExpressionStatement. got=%T", prog.Statements[0])
+	}
+	indxExp, ok := stmt.Expression.(*ast.IndexExpression)
+	if !ok {
+		t.Fatalf("exp is not *ast.IndexExpression. got=%T", stmt.Expression)
+	}
+
+	if !testIdentifier(t, indxExp.Left, "arr") {
+		return
+	}
+
+	if !testInfixExpression(t, indxExp.Index, 1, "+", 1) {
+		return
+	}
+
 }

@@ -12,8 +12,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Hello %s! This is Nala programming language!\n", user.Username)
-	fmt.Printf("Feel free to type commands\n")
-	fmt.Printf("Enter '.q' to quit the REPL.\n")
-	repl.Start(os.Stdin, os.Stdout)
+
+	if len(os.Args) != 1 {
+		repl.Start(os.Stdin, os.Stdout)
+	} else {
+		fmt.Printf("Hello %s! This is Nala programming language!\n", user.Username)
+		fmt.Printf("Feel free to type commands\n")
+		fmt.Printf("Enter '.q' to quit the REPL.\n")
+		repl.Start(os.Stdin, os.Stdout)
+	}
+
 }

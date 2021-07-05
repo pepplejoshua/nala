@@ -42,6 +42,22 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		return getBooleanObject(node.Value)
 	case *ast.StringLiteral:
 		return &object.String{Value: node.Value}
+	case *ast.ArrayLiteral:
+		elems := evalExpressions(node.Elements, env)
+		if len(elems) == 1 && isErrorObj(elems[0]) {
+			return elems[0]
+		}
+		return &object.Array{Elements: elems}
+	case *ast.IndexExpression:
+		left := Eval(node.Left, env)
+		if isErrorObj(left) {
+			return left
+		}
+		indx := Eval(node.Index, env)
+		if isErrorObj(indx) {
+			return indx
+		}
+		return evalIndexExpression(left, indx)
 	case *ast.PrefixExpression:
 		right := Eval(node.Right, env)
 		if isErrorObj(right) {
@@ -116,6 +132,27 @@ func extendFunctionEnv(fn *object.Function, args []object.Object) *object.Enviro
 	}
 
 	return env
+}
+
+func evalIndexExpression(left object.Object, index object.Object) object.Object {
+	switch {
+	case typeChecks(left.Type(), object.ARRAY_OBJ) &&
+		typeChecks(index.Type(), object.INTEGER_OBJ):
+		return evalArrayIndexExpression(left, index)
+	default:
+		return newError("index operator not supported: %s", left.Type())
+	}
+}
+
+func evalArrayIndexExpression(array object.Object, index object.Object) object.Object {
+	arr := array.(*object.Array)
+	idx := index.(*object.Integer).Value
+	max := int64(len(arr.Elements) - 1)
+
+	if idx < 0 || idx > max {
+		return NIL
+	}
+	return arr.Elements[idx]
 }
 
 // handles top level evaluation of program
