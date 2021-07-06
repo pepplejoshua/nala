@@ -9,5 +9,6 @@
 - cons() builtin, {} operator for defining growing vectors (equivalent to lists in lisp)
 - first(), rest(), last() builtins for vectors
 - Make sure to keep to testing rigorously
+- add show info functions for builtins sb(), sd() [DONE]
 - Add comments (and ability to skip them, similar to skipWhitespace)
 - loadf() builtin for loading files in repl (consider using it for imports as well)

@@ -52,3 +52,6 @@ let genArrFromTypes = fn() {
 let arr = [1, 2, 3, 4, type, sum, map, true, false, [1, 2, 3]]
 
 genArrFromTypes()(arr)
+
+puts(sd(type))
+sb()

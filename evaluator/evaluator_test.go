@@ -575,6 +575,49 @@ func TestHashIndexExpressions(t *testing.T) {
 	}
 }
 
-// let adderTemplate* = fn(x) { fn(y) { x + y } };
-// let addTwo = adderTemplate*(2);
-// addTwo(8)
+func TestQuotes(t *testing.T) {
+	tests := []GenericTest{
+		{`quote(5);`, `5`},
+		{`quote(2+2);`, `(2 + 2)`},
+		{`quote(foobar);`, `foobar`},
+		{`quote(foobar + barfoo);`, `(foobar + barfoo)`},
+	}
+
+	for _, tt := range tests {
+		eval := testEval(tt.input)
+		testQuote(t, eval, tt.expected)
+	}
+}
+
+func TestQuoteUnquotes(t *testing.T) {
+	tests := []GenericTest{
+		{`quote(unquote(4))`, `4`},
+		{`quote(8 + unquote(4 + 4))`, `(8 + 8)`},
+		{`quote(unquote(true) == 1 < 2)`, `(true == (1 < 2))`},
+		{`quote(unquote(4 + 4) % 8)`, `(8 % 8)`},
+	}
+
+	for _, tt := range tests {
+		eval := testEval(tt.input)
+		testQuote(t, eval, tt.expected)
+	}
+}
+
+func testQuote(t *testing.T, res object.Object, expStr interface{}) bool {
+	quote, ok := res.(*object.Quote)
+	if !ok {
+		t.Fatalf("expected *object.Quote. got=%T (%+v)", res, res)
+		return false
+	}
+
+	if quote.CodeNode == nil {
+		t.Fatalf("quote.Node is nil")
+		return false
+	}
+
+	if quote.CodeNode.String() != expStr {
+		t.Errorf("not equal. got=%q, want=%q", quote.CodeNode.String(), expStr)
+		return false
+	}
+	return true
+}

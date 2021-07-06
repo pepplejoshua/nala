@@ -51,6 +51,8 @@ func nala_object_type(args ...object.Object) object.Object {
 		return &object.String{Value: object.ARRAY_OBJ}
 	case *object.HashMap:
 		return &object.String{Value: object.HASHMAP_OBJ}
+	case *object.Quote:
+		return &object.String{Value: object.QUOTE_OBJ}
 	default:
 		return newError("object type unexpected. got %s", args[0].Type())
 	}
@@ -288,23 +290,45 @@ func nala_copy(args ...object.Object) object.Object {
 	}
 }
 
+func nala_showbuiltin_info(args ...object.Object) object.Object {
+	if !argumentCountMatch(len(args), 1) {
+		return newError("wrong number of arguments. got=%d", len(args))
+	}
+
+	if args[0].Type() == object.BUILTIN_OBJ {
+		fmt.Println(args[0].Inspect())
+	}
+	return NIL
+}
+
+func nala_showuserdef_fns(args ...object.Object) object.Object {
+
+	return NIL
+}
+
+// TODOs:
+// Iterable interface: Array, String, Vector
+
 // export builtins to REPL
 var builtins = MapofIDtoBuiltin{
-	"len":    &object.BuiltIn{Fn: nala_len},
-	"type":   &object.BuiltIn{Fn: nala_object_type},
-	"first":  &object.BuiltIn{Fn: nala_first},
-	"last":   &object.BuiltIn{Fn: nala_last},
-	"rest":   &object.BuiltIn{Fn: nala_rest},
-	"push":   &object.BuiltIn{Fn: nala_push},
-	"puts":   &object.BuiltIn{Fn: nala_puts},
-	"putl":   &object.BuiltIn{Fn: nala_putl},
-	"reads":  &object.BuiltIn{Fn: nala_reads},
-	"keys":   &object.BuiltIn{Fn: nala_hashmap_keys},
-	"values": &object.BuiltIn{Fn: nala_hashmap_values},
-	"items":  &object.BuiltIn{Fn: nala_hashmap_items},
-	"ins":    &object.BuiltIn{Fn: nala_hashmap_insert},
-	"copy":   &object.BuiltIn{Fn: nala_copy},
-	// "sb":     &object.BuiltIn{Fn: nala_showbuiltins},
-	// "si":     &object.BuiltIn{Fn: nala_showbuiltin_info},
+	"len":   &object.BuiltIn{Fn: nala_len, Desc: "calculates the length of a Nala iterable"},
+	"type":  &object.BuiltIn{Fn: nala_object_type, Desc: "shows the type of a Nala object"},
+	"first": &object.BuiltIn{Fn: nala_first, Desc: "returns the first element of an Array"},
+	"last":  &object.BuiltIn{Fn: nala_last, Desc: "returns the last element of an Array"},
+	"rest": &object.BuiltIn{
+		Fn:   nala_rest,
+		Desc: "returns a new copy of passed Array excluding first element"},
+	"push":   &object.BuiltIn{Fn: nala_push, Desc: "pushes a new element to the back of an Array"},
+	"puts":   &object.BuiltIn{Fn: nala_puts, Desc: "prints to standard output on the same line, with a terminating newline.\nTakes 0 or more arguments"},
+	"putl":   &object.BuiltIn{Fn: nala_putl, Desc: "prints to standard output on multiple lines.\nTakes 0 or more arguments"},
+	"reads":  &object.BuiltIn{Fn: nala_reads, Desc: "reads string from standard input. Takes conditional prompt string"},
+	"keys":   &object.BuiltIn{Fn: nala_hashmap_keys, Desc: "returns the keys of a HashMap in an Array"},
+	"values": &object.BuiltIn{Fn: nala_hashmap_values, Desc: "returns the keys of a HashMap in an Array"},
+	"items":  &object.BuiltIn{Fn: nala_hashmap_items, Desc: "returns an Array of Arrays containing Key, Value of a HashMap."},
+	"ins":    &object.BuiltIn{Fn: nala_hashmap_insert, Desc: "inserts a Value at a Key in a HashMap"},
+	"copy":   &object.BuiltIn{Fn: nala_copy, Desc: "returns a copy of an Array or HashMap"},
+	"sb":     &object.BuiltIn{Fn: nil},
+	"sd":     &object.BuiltIn{Fn: nala_showbuiltin_info, Desc: "takes a builtin functions and shows the description"},
+	"sf":     &object.BuiltIn{Fn: nala_showuserdef_fns, Desc: "shows all user bound functions in environment"},
 	// "loadf":  &object.BuiltIn{Fn: nala_loadf},
 }

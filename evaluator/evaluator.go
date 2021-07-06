@@ -85,6 +85,11 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		body := node.Body
 		return &object.Function{Parameters: params, Env: env, Body: body}
 	case *ast.CallExpression:
+		if node.Function.TokenLiteral() == "quote" {
+			// this freezes the object (does not interprete it)
+			return quote(node.Arguments[0])
+		}
+
 		fn := Eval(node.Function, env)
 		if isErrorObj(fn) {
 			return fn
@@ -277,10 +282,28 @@ func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object
 
 	// allows us use identifiers to access builtin functions
 	if builtin, ok := builtins[node.Value]; ok {
+		if node.Value == "sb" {
+			return evalShowBuiltInFunctions()
+		}
 		return builtin
 	}
 
 	return newError("identifier not found: %s", node.Value)
+}
+
+func evalShowBuiltInFunctions() object.Object {
+	fmt.Println(".builtins.")
+	fmt.Println(".========.")
+	for cStr, fn := range builtins {
+		if cStr == "sb" {
+			continue
+		}
+		fmt.Println(cStr, ": ", fn.Desc)
+	}
+	fmt.Println("sb : ", "shows builtin functions and their descriptions")
+	// fmt.Println("sd : ", "take`s a builtin functions and shows the description")
+	fmt.Println()
+	return NIL
 }
 
 func evalPrefixExpression(operator string, right object.Object) object.Object {

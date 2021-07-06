@@ -21,6 +21,7 @@ const (
 	BUILTIN_OBJ      = "BUILTIN"
 	ARRAY_OBJ        = "ARRAY"
 	HASHMAP_OBJ      = "HASHMAP"
+	QUOTE_OBJ        = "QUOTE"
 )
 
 type Object interface {
@@ -188,11 +189,21 @@ func (hm *HashMap) Inspect() string {
 type BuiltInFunction func(args ...Object) Object
 
 type BuiltIn struct {
-	Fn BuiltInFunction
+	Fn   BuiltInFunction
+	Desc string
 }
 
 func (b *BuiltIn) Type() ObjectType { return BUILTIN_OBJ }
-func (b *BuiltIn) Inspect() string  { return "builtin function" }
+func (b *BuiltIn) Inspect() string  { return fmt.Sprintf("builtin function: %q", b.Desc) }
+
+type Quote struct {
+	CodeNode ast.Node
+}
+
+func (q *Quote) Type() ObjectType { return QUOTE_OBJ }
+func (q *Quote) Inspect() string {
+	return "QUOTE(" + q.CodeNode.String() + ")"
+}
 
 // func () Type() ObjectType { return }
 // func () Inspect() string { return }
