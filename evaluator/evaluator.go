@@ -84,6 +84,15 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		params := node.Parameters
 		body := node.Body
 		return &object.Function{Parameters: params, Env: env, Body: body}
+	case *ast.MacroLiteral:
+		params := node.Parameters
+		body := node.Body
+		return &object.Macro{
+			Parameters:   params,
+			Body:         body,
+			Env:          env,
+			MacroLiteral: node,
+		}
 	case *ast.CallExpression:
 		if node.Function.TokenLiteral() == "quote" {
 			// this freezes the object (does not interprete it)
@@ -94,6 +103,26 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		if isErrorObj(fn) {
 			return fn
 		}
+
+		if fn.Type() == object.MACRO_OBJ {
+			fargs := quoteArgs(node)
+			fn, _ := fn.(*object.Macro)
+			if len(fargs) != len(fn.Parameters) {
+				err := "wrong number of arguments. got=%d, want=%d"
+				return newError(err, len(fargs), len(fn.Parameters))
+			} else {
+				extendedEnv := extendMacroEnvEval(fn, fargs)
+				evald := Eval(fn.Body, extendedEnv)
+				if retVal, ok := evald.(*object.ReturnValue); ok {
+					return retVal.Value
+				}
+				if quote, ok := evald.(*object.Quote); ok {
+					return Eval(quote.CodeNode, env)
+				}
+				return evald
+			}
+		}
+
 		args := evalExpressions(node.Arguments, env)
 		if len(args) == 1 && isErrorObj(args[0]) {
 			return args[0]
@@ -108,17 +137,17 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 func applyFunction(function object.Object, args []object.Object) object.Object {
 	switch fn := function.(type) {
 	case *object.Function:
+		// do parameter counting to make sure right number of arguments were passed
+		if len(args) != len(fn.Parameters) {
+			err := "wrong number of arguments. got=%d, want=%d"
+			return newError(err, len(args), len(fn.Parameters))
+		}
 		// this creates a static environment binding, as fn.env is the lexical env
 		// from when it was defined vs whatever the current env is at the point of this call.
 		// passing that env instead would be dynamic environment binding
 		extendedEnv := extendFunctionEnv(fn, args)
 		evald := Eval(fn.Body, extendedEnv)
 
-		// do parameter counting to make sure right number of arguments were passed
-		if len(args) != len(fn.Parameters) {
-			err := "wrong number of arguments. got=%d, want=%d"
-			return newError(err, len(args), len(fn.Parameters))
-		}
 		if retVal, ok := evald.(*object.ReturnValue); ok {
 			return retVal.Value
 		}
@@ -135,6 +164,16 @@ func extendFunctionEnv(fn *object.Function, args []object.Object) *object.Enviro
 	env := object.NewEnclosedEnvironment(fn.Env)
 
 	for paramI, param := range fn.Parameters {
+		env.Set(param.Value, args[paramI])
+	}
+
+	return env
+}
+
+func extendMacroEnvEval(en *object.Macro, args []*object.Quote) *object.Environment {
+	env := object.NewEnclosedEnvironment(en.Env)
+
+	for paramI, param := range en.Parameters {
 		env.Set(param.Value, args[paramI])
 	}
 
@@ -218,8 +257,6 @@ func evalProgram(stmts []ast.Statement, env *object.Environment) object.Object {
 			return res.Value
 		case *object.Error:
 			return res
-			// case *object.Quote:
-			// 	return Eval(res.CodeNode, env)
 		}
 	}
 	return res
@@ -278,6 +315,12 @@ func evalIfExpression(node *ast.IfExpression, env *object.Environment) object.Ob
 }
 
 func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object {
+	// if me != nil {
+	// 	if val, ok := me.Get(node.Value); ok {
+	// 		return val
+	// 	}
+	// }
+
 	if val, ok := env.Get(node.Value); ok {
 		return val
 	}

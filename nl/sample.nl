@@ -55,3 +55,4 @@ genArrFromTypes()(arr)
 
 puts(sd(type))
 sb()
+

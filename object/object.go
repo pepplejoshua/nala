@@ -22,6 +22,7 @@ const (
 	ARRAY_OBJ        = "ARRAY"
 	HASHMAP_OBJ      = "HASHMAP"
 	QUOTE_OBJ        = "QUOTE"
+	MACRO_OBJ        = "MACRO"
 )
 
 type Object interface {
@@ -106,6 +107,31 @@ func (f *Function) Inspect() string {
 	out.WriteString(strings.Join(params, ", "))
 	out.WriteString(") {\n")
 	out.WriteString(f.Body.String())
+	out.WriteString("\n}")
+
+	return out.String()
+}
+
+type Macro struct {
+	Parameters   []*ast.Identifier
+	Body         *ast.BlockStatement
+	Env          *Environment
+	MacroLiteral *ast.MacroLiteral
+}
+
+func (m *Macro) Type() ObjectType { return MACRO_OBJ }
+func (m *Macro) Inspect() string {
+	var out bytes.Buffer
+
+	params := []string{}
+	for _, p := range m.Parameters {
+		params = append(params, p.String())
+	}
+
+	out.WriteString("macro (")
+	out.WriteString(strings.Join(params, ", "))
+	out.WriteString(") {\n")
+	out.WriteString(m.Body.String())
 	out.WriteString("\n}")
 
 	return out.String()
@@ -235,6 +261,8 @@ func (e *Environment) Get(name string) (Object, bool) {
 	}
 	return obj, ok
 }
+
+func (e *Environment) GetStore() NameObjectPairs { return e.store }
 
 func (e *Environment) Set(name string, val Object) Object {
 	e.store[name] = val

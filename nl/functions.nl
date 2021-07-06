@@ -1,3 +1,13 @@
+let unless = macro(cond, cons, alt) {
+				quote(
+					if (!unquote(cond)) {
+						unquote(cons)
+					} else {
+						unquote(alt)
+					}
+				);
+			}
+
 let map = fn(arr, f) {
     let iter = fn(arr, accum) {
         if (len(arr) == 0) {
@@ -30,3 +40,12 @@ let product = fn(arr) {
 };
 
 let info = {"name": "Nala", "version": "0.0.9", "author": "Iwarilama"};
+
+let reverseMinus = macro(a, b) { quote(unquote(b) - unquote(a)); }
+let tern = fn(cond, cons, alt) { 
+    if (cond) {
+        cons
+    } else {
+        alt
+    }
+}

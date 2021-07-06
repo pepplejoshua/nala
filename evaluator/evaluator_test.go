@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"nala/ast"
 	"nala/lexer"
 	"nala/object"
 	"nala/parser"
@@ -631,4 +632,112 @@ func testQuote(t *testing.T, res object.Object, expStr interface{}) bool {
 		return false
 	}
 	return true
+}
+
+func TestDefineMacros(t *testing.T) {
+	input := `
+	let num = 1
+	let func = fn(x, y) { x + y };
+	let mac = macro(x, y) { y + x; };
+	`
+
+	env := object.NewEnvironment()
+	prog := testParseProgram(input)
+
+	DefineMacros(prog, env)
+
+	if len(prog.Statements) != 2 {
+		t.Fatalf("Wrong number of statements. got=%d", len(prog.Statements))
+	}
+
+	_, ok := env.Get("num")
+	if ok {
+		t.Fatalf("number should not be defined")
+	}
+
+	_, ok = env.Get("func")
+	if ok {
+		t.Fatalf("func should not be defined")
+	}
+
+	obj, ok := env.Get("mac")
+	if !ok {
+		t.Fatalf("macro not in environment")
+	}
+
+	mac, ok := obj.(*object.Macro)
+	if !ok {
+		t.Fatalf("obj is not Macro. got=%T (%+v)", obj, obj)
+	}
+
+	if len(mac.Parameters) != 2 {
+		t.Fatalf("Wrong number of macro parameters. got=%d", len(mac.Parameters))
+	}
+
+	if mac.Parameters[0].String() != "x" {
+		t.Fatalf("parameter is not 'x'. got=%q", mac.Parameters[0])
+	}
+
+	if mac.Parameters[1].String() != "y" {
+		t.Fatalf("parameter is not 'y'. got=%q", mac.Parameters[1])
+	}
+
+	expected := "    (y + x)"
+
+	if mac.Body.String() != expected {
+		t.Fatalf("body is not %q. got=%q", expected, mac.Body.String())
+	}
+
+}
+
+func testParseProgram(in string) *ast.Program {
+	l := lexer.New(in)
+	p := parser.New(l)
+	return p.ParseProgram()
+}
+
+func TestExpandMacros(t *testing.T) {
+	tests := []GenericTest{
+		{
+			`let iE = macro() { quote(1 + 2); }
+			iE()
+			`,
+			`(1 + 2)`,
+		},
+		{
+			`let revMinus = macro(a, b) { quote(unquote(b) - unquote(a)); }
+			revMinus(2 + 2, 10 - 5);
+			`,
+			`(10 - 5) - (2 + 2)`,
+		},
+		{
+			`
+			let unless = macro(cond, cons, alt) {
+				quote(
+					if (!unquote(cond)) {
+						unquote(cons)
+					} else {
+						unquote(alt)
+					}
+				);
+			}
+			unless(10 > 5, puts("not greater"), puts("greater"))
+			`,
+			`if (!(10 > 5)) { puts("not greater") } else { puts("greater") }`,
+		},
+	}
+
+	for _, tt := range tests {
+		exp := testParseProgram(tt.expected.(string))
+		prog := testParseProgram(tt.input)
+
+		env := object.NewEnvironment()
+		DefineMacros(prog, env)
+		expanded := ExpandMacros(prog, env)
+
+		if expanded.String() != exp.String() {
+			t.Errorf("not equal. want=%q, got=%q", exp.String(), expanded.String())
+		}
+
+	}
 }

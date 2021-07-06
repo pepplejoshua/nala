@@ -476,15 +476,6 @@ func (p *Parser) expectPeek(expectedType token.TokenType) bool {
 	}
 }
 
-func (p *Parser) expectCur(expectedType token.TokenType) bool {
-	if p.curTokenIs(expectedType) {
-		return true
-	} else {
-		p.curError(expectedType)
-		return false
-	}
-}
-
 func (p *Parser) curTokenIs(expectedType token.TokenType) bool {
 	return expectedType == p.curToken.Type
 }
@@ -498,12 +489,6 @@ func (p *Parser) Errors() []string { return p.errors }
 func (p *Parser) peekError(t token.TokenType) {
 	err := fmt.Sprintf("expected next token to be %s, got %s instead",
 		t, p.peekToken.Type)
-	p.errors = append(p.errors, err)
-}
-
-func (p *Parser) curError(t token.TokenType) {
-	err := fmt.Sprintf("expected current token to be %s, got %s instead",
-		t, p.curToken.Type)
 	p.errors = append(p.errors, err)
 }
 

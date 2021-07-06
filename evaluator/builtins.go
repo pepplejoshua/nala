@@ -53,6 +53,8 @@ func nala_object_type(args ...object.Object) object.Object {
 		return &object.String{Value: object.HASHMAP_OBJ}
 	case *object.Quote:
 		return &object.String{Value: object.QUOTE_OBJ}
+	case *object.Macro:
+		return &object.String{Value: object.MACRO_OBJ}
 	default:
 		return newError("object type unexpected. got %s", args[0].Type())
 	}
@@ -330,5 +332,6 @@ var builtins = MapofIDtoBuiltin{
 	"sb":     &object.BuiltIn{Fn: nil},
 	"sd":     &object.BuiltIn{Fn: nala_showbuiltin_info, Desc: "takes a builtin functions and shows the description"},
 	"sf":     &object.BuiltIn{Fn: nala_showuserdef_fns, Desc: "shows all user bound functions in environment"},
+	// "unquote": &object.BuiltIn{Fn: nala_outer_unquote, Desc: "used as an external unquote for the Quote objects returned by Macros or Fns."},
 	// "loadf":  &object.BuiltIn{Fn: nala_loadf},
 }

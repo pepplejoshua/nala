@@ -8,7 +8,10 @@ func Modify(node Node, modifier ModifierFunc) Node {
 	switch node := node.(type) {
 	case *Program:
 		for i, statement := range node.Statements {
-			node.Statements[i], _ = Modify(statement, modifier).(Statement)
+			t, ok := Modify(statement, modifier).(Statement)
+			if ok {
+				node.Statements[i] = t
+			}
 		}
 	case *ExpressionStatement:
 		node.Expression, _ = Modify(node.Expression, modifier).(Expression)
