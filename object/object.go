@@ -21,8 +21,6 @@ const (
 	BUILTIN_OBJ      = "BUILTIN"
 	ARRAY_OBJ        = "ARRAY"
 	HASHMAP_OBJ      = "HASHMAP"
-	QUOTE_OBJ        = "QUOTE"
-	MACRO_OBJ        = "MACRO"
 )
 
 type Object interface {
@@ -112,31 +110,6 @@ func (f *Function) Inspect() string {
 	return out.String()
 }
 
-type Macro struct {
-	Parameters   []*ast.Identifier
-	Body         *ast.BlockStatement
-	Env          *Environment
-	MacroLiteral *ast.MacroLiteral
-}
-
-func (m *Macro) Type() ObjectType { return MACRO_OBJ }
-func (m *Macro) Inspect() string {
-	var out bytes.Buffer
-
-	params := []string{}
-	for _, p := range m.Parameters {
-		params = append(params, p.String())
-	}
-
-	out.WriteString("macro (")
-	out.WriteString(strings.Join(params, ", "))
-	out.WriteString(") {\n")
-	out.WriteString(m.Body.String())
-	out.WriteString("\n}")
-
-	return out.String()
-}
-
 type String struct {
 	Value       string
 	HashableKey *HashKey
@@ -221,15 +194,6 @@ type BuiltIn struct {
 
 func (b *BuiltIn) Type() ObjectType { return BUILTIN_OBJ }
 func (b *BuiltIn) Inspect() string  { return fmt.Sprintf("builtin function: %q", b.Desc) }
-
-type Quote struct {
-	CodeNode ast.Node
-}
-
-func (q *Quote) Type() ObjectType { return QUOTE_OBJ }
-func (q *Quote) Inspect() string {
-	return "QUOTE(" + q.CodeNode.String() + ")"
-}
 
 // func () Type() ObjectType { return }
 // func () Inspect() string { return }

@@ -84,44 +84,22 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		params := node.Parameters
 		body := node.Body
 		return &object.Function{Parameters: params, Env: env, Body: body}
-	case *ast.MacroLiteral:
-		params := node.Parameters
-		body := node.Body
-		return &object.Macro{
-			Parameters:   params,
-			Body:         body,
-			Env:          env,
-			MacroLiteral: node,
-		}
 	case *ast.CallExpression:
-		if node.Function.TokenLiteral() == "quote" {
-			// this freezes the object (does not interprete it)
-			return quote(node.Arguments[0], env)
-		}
-
 		fn := Eval(node.Function, env)
 		if isErrorObj(fn) {
 			return fn
 		}
 
-		if fn.Type() == object.MACRO_OBJ {
-			fargs := quoteArgs(node)
-			fn, _ := fn.(*object.Macro)
-			if len(fargs) != len(fn.Parameters) {
-				err := "wrong number of arguments. got=%d, want=%d"
-				return newError(err, len(fargs), len(fn.Parameters))
-			} else {
-				extendedEnv := extendMacroEnvEval(fn, fargs)
-				evald := Eval(fn.Body, extendedEnv)
-				if retVal, ok := evald.(*object.ReturnValue); ok {
-					return retVal.Value
-				}
-				if quote, ok := evald.(*object.Quote); ok {
-					return Eval(quote.CodeNode, env)
-				}
-				return evald
-			}
-		}
+		// want to be able to Eval Macro expanded body
+		// variables expanded into macro expression and macro itself has been expanded
+		// to its matching body
+		// turn args into ASTNode objects instead
+
+		// the call provides me with the argument expressions with
+		// which to expand the macro
+		// so I want to take the arguments, eval them
+		// and then replace variable names with matching expressions (expand)
+		// then return the expanded expression from the macro and eval it
 
 		args := evalExpressions(node.Arguments, env)
 		if len(args) == 1 && isErrorObj(args[0]) {
@@ -155,6 +133,22 @@ func applyFunction(function object.Object, args []object.Object) object.Object {
 	case *object.BuiltIn:
 		// call the builtin
 		return fn.Fn(args...)
+	// case *object.Macro:
+	// 	// do parameter counting to make sure right number of arguments were passed
+	// 	if len(args) != len(fn.Parameters) {
+	// 		err := "wrong number of arguments. got=%d, want=%d"
+	// 		return newError(err, len(args), len(fn.Parameters))
+	// 	}
+	// 	// this creates a static environment binding, as fn.env is the lexical env
+	// 	// from when it was defined vs whatever the current env is at the point of this call.
+	// 	// passing that env instead would be dynamic environment binding
+	// 	extendedEnv := extendFunctionEnv(fn, args)
+	// 	evald := Eval(fn.Body, extendedEnv)
+
+	// 	if retVal, ok := evald.(*object.ReturnValue); ok {
+	// 		return retVal.Value
+	// 	}
+	// 	return evald
 	default:
 		return newError("not a function: %s", fn.Type())
 	}
@@ -164,16 +158,6 @@ func extendFunctionEnv(fn *object.Function, args []object.Object) *object.Enviro
 	env := object.NewEnclosedEnvironment(fn.Env)
 
 	for paramI, param := range fn.Parameters {
-		env.Set(param.Value, args[paramI])
-	}
-
-	return env
-}
-
-func extendMacroEnvEval(en *object.Macro, args []*object.Quote) *object.Environment {
-	env := object.NewEnclosedEnvironment(en.Env)
-
-	for paramI, param := range en.Parameters {
 		env.Set(param.Value, args[paramI])
 	}
 

@@ -22,9 +22,8 @@ func Start(in io.Reader, out io.Writer) {
 	// this wraps the input with a Buffer that we can Scan?
 	scanner := bufio.NewScanner(in)
 	env := object.NewEnvironment()
-	macroEnv := object.NewEnvironment()
 	// pre read some of handwritten functions from files
-	readNalaFunctions(env, macroEnv, out)
+	readNalaFunctions(env, out)
 
 	args := os.Args[1:]
 
@@ -39,19 +38,14 @@ func Start(in io.Reader, out io.Writer) {
 		l := lexer.New(src)
 		p := parser.New(l)
 
-		// for tok := pl.NextToken(); tok.Type != token.EOF; tok = pl.NextToken() {
-		// 	fmt.Printf("%+v\n", tok)
-		// }
 		prog := p.ParseProgram()
 		if hasErrors(p, out) {
 			io.WriteString(out, fmt.Sprintf("Couldn't read Nala Functions Source from %q", pth))
 			printParseErrors(out, p.Errors())
 		}
 
-		evaluator.DefineMacros(prog, macroEnv)
 		// this expands all macros, i.e edits the source tree, replacing all macros with their exact definitions
-		macroExpandedProg := evaluator.ExpandMacros(prog, macroEnv)
-		res := evaluator.Eval(macroExpandedProg, env)
+		res := evaluator.Eval(prog, env)
 		if res != nil {
 			io.WriteString(out, res.Inspect()+"\n")
 		} else {
@@ -75,7 +69,7 @@ func Start(in io.Reader, out io.Writer) {
 		}
 
 		if line == ".m" {
-			for n, o := range macroEnv.GetStore() {
+			for n, o := range env.GetStore() {
 				fmt.Printf("%q: (%+v)", n, o)
 			}
 			fmt.Println()
@@ -94,10 +88,6 @@ func Start(in io.Reader, out io.Writer) {
 		if hasErrors(p, out) {
 			printParseErrors(out, p.Errors())
 		} else {
-			// evaluator.DefineMacros(prog, macroEnv)
-			// evaluator.DefineMacros(prog, env)
-			// this expands all macros, i.e edits the source tree, replacing all macros with their exact definitions
-			// macroExpandedProg := evaluator.ExpandMacros(prog, macroEnv)
 			res := evaluator.Eval(prog, env)
 			if res != nil {
 				io.WriteString(out, res.Inspect()+"\n")
@@ -127,7 +117,7 @@ func printParseErrors(out io.Writer, errs []string) {
 
 }
 
-func readNalaFunctions(env *object.Environment, macroEnv *object.Environment, out io.Writer) {
+func readNalaFunctions(env *object.Environment, out io.Writer) {
 	src := getFileContents(FUNCSPATH)
 	// pl := lexer.New(src)
 	l := lexer.New(src)
@@ -143,16 +133,7 @@ func readNalaFunctions(env *object.Environment, macroEnv *object.Environment, ou
 		printParseErrors(out, p.Errors())
 	}
 
-	// evaluator.DefineMacros(prog, macroEnv)
-	// this expands all macros, i.e edits the source tree, replacing all macros with their exact definitions
-	// macroExpandedProg := evaluator.ExpandMacros(prog, macroEnv)
-	// fmt.Println(macroExpandedProg.String())
 	evaluator.Eval(prog, env)
-	// if r != nil {
-	// io.WriteString(out, "Loaded Nala Functions Source!\n\n")
-	// } else {
-	// io.WriteString(out, "Couldn't load and evaluate source...\n\n")
-	// }
 }
 
 func getFileContents(location string) string {
