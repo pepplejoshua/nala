@@ -35,6 +35,7 @@ func TestNextToken(t *testing.T) {
 	"foo bar"
 	[1, 2, 10 > 5];
 	{ "foo" : "bar" }
+	macro(a, b) { a + b };
 	`
 
 	// generates an array of expected tokens from that initializer list
@@ -143,6 +144,19 @@ func TestNextToken(t *testing.T) {
 		{token.STRING, "bar"},
 		{token.RBRACE, "}"},
 
+		{token.MACRO, "macro"},
+		{token.LPAREN, "("},
+		{token.IDENT, "a"},
+		{token.COMMA, ","},
+		{token.IDENT, "b"},
+		{token.RPAREN, ")"},
+		{token.LBRACE, "{"},
+		{token.IDENT, "a"},
+		{token.PLUS, "+"},
+		{token.IDENT, "b"},
+		{token.RBRACE, "}"},
+		{token.SEMICOLON, ";"},
+
 		{token.EOF, ""},
 	}
 
@@ -157,7 +171,7 @@ func TestNextToken(t *testing.T) {
 		}
 
 		if tok.Literal != expTok.expectedLiteral {
-			t.Fatalf("tests[%d] - literal wrong. expected=%q, got=%q", indx, expTok.expectedType, tok.Type)
+			t.Fatalf("tests[%d] - literal wrong. expected=%q, got=%q", indx, expTok.expectedLiteral, tok.Literal)
 		}
 	}
 }

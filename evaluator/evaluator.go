@@ -87,7 +87,7 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 	case *ast.CallExpression:
 		if node.Function.TokenLiteral() == "quote" {
 			// this freezes the object (does not interprete it)
-			return quote(node.Arguments[0])
+			return quote(node.Arguments[0], env)
 		}
 
 		fn := Eval(node.Function, env)
@@ -218,6 +218,8 @@ func evalProgram(stmts []ast.Statement, env *object.Environment) object.Object {
 			return res.Value
 		case *object.Error:
 			return res
+			// case *object.Quote:
+			// 	return Eval(res.CodeNode, env)
 		}
 	}
 	return res

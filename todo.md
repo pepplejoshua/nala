@@ -1,14 +1,15 @@
 - reads() builtin to read in string from user [DONE]
-- Finish macro system.
+- Finish macro system. [DOING]
 - More operators (infix and prefix) implemented using Macro system (or not)
 - updating HashMaps (equivalent to push() for Arrays)[DONE]
 - copy() for HashMaps and Arrays [DONE]
 - type conversion builtins
 - keys(), values(), items() builtins for HashMaps [DONE]
-- ternary operator a ? x : y
+- ternary operator a ? x : y (try using macro system)
 - cons() builtin, {} operator for defining growing vectors (equivalent to lists in lisp)
 - first(), rest(), last() builtins for vectors
 - Make sure to keep to testing rigorously
 - add show info functions for builtins sb(), sd() [DONE]
 - Add comments (and ability to skip them, similar to skipWhitespace)
 - loadf() builtin for loading files in repl (consider using it for imports as well)
+- use VS Code's Yeoman templates to make Syntax highlighter 
