@@ -240,24 +240,45 @@ func nala_hashmap_items(args ...object.Object) object.Object {
 	return &object.Array{Elements: elems}
 }
 
-func nala_hashmap_insert(args ...object.Object) object.Object {
+func nala_insert(args ...object.Object) object.Object {
 	if !argumentCountMatch(len(args), 3) {
 		return newError("wrong number of arguments. got=%d", len(args))
 	}
 
-	if args[0].Type() != object.HASHMAP_OBJ {
-		return newError("argument to `keys` must be HASHMAP, got %s", args[0].Type())
-	}
-	hmap := args[0].(*object.HashMap)
-	hashKey, ok := args[1].(object.Hashable)
-	if !ok {
-		return newError("unusable as hash key: %s", args[1].Type())
-	}
+	switch ob := args[0].(type) {
+	case *object.HashMap:
+		hashKey, ok := args[1].(object.Hashable)
+		if !ok {
+			return newError("unusable as hash key: %s", args[1].Type())
+		}
 
-	val := args[2]
-	hsh := hashKey.HashKey()
-	hmap.Pairs[hsh] = object.HashPair{Key: hashKey.(object.Object), Value: val}
-	return NIL
+		val := args[2]
+		hsh := hashKey.HashKey()
+		ob.Pairs[hsh] = object.HashPair{Key: hashKey.(object.Object), Value: val}
+		return nil
+	case *object.Array:
+		ind, ok := args[1].(*object.Integer)
+		if !ok {
+			return newError("Array key should be INTEGER. got %s", args[1].Type())
+		}
+
+		if len(ob.Elements) == 0 || len(ob.Elements) == int(ind.Value) {
+			r := nala_push(args[0], args[2])
+			if r.Type() == object.ERROR_OBJ {
+				return r
+			}
+			ob.Elements = r.(*object.Array).Elements
+		}
+
+		if int(ind.Value) > len(ob.Elements) {
+			return newError("Index is greater than indexable length of Array.")
+		}
+
+		ob.Elements[int(ind.Value)] = args[2]
+		return NIL
+	default:
+		return newError("argument to `ins` must be HASHMAP/ARRAY, got %s", args[0].Type())
+	}
 }
 
 func nala_copy(args ...object.Object) object.Object {
@@ -286,6 +307,44 @@ func nala_copy(args ...object.Object) object.Object {
 	default:
 		return newError("argument to `copy` is not supported, got %s", obj.Type())
 	}
+}
+
+func nala_delete(args ...object.Object) object.Object {
+	if !argumentCountMatch(len(args), 2) {
+		return newError("wrong number of arguments. got=%d", len(args))
+	}
+
+	switch ob := args[0].(type) {
+	case *object.HashMap:
+		hashKey, ok := args[1].(object.Hashable)
+		if !ok {
+			return newError("unusable as hash key: %s", args[1].Type())
+		}
+
+		if _, ok := ob.Pairs[hashKey.HashKey()]; !ok {
+			return newError("key does not exist in HashMap")
+		} else {
+			delete(ob.Pairs, hashKey.HashKey())
+		}
+		return NIL
+	case *object.Array:
+		ind, ok := args[1].(*object.Integer)
+		if !ok {
+			return newError("Array key should be INTEGER. got %s", args[1].Type())
+		}
+		if int(ind.Value) > len(ob.Elements) {
+			return newError("Index is greater than indexable length of Array.")
+		}
+
+		in := int(ind.Value)
+		elems := make([]object.Object, 0)
+		elems = append(elems, ob.Elements[:in]...)
+		elems = append(elems, ob.Elements[in+1:]...)
+		ob.Elements = elems
+	default:
+		return newError("argument to `del` must be HASHMAP/ARRAY, got %s", args[0].Type())
+	}
+	return NIL
 }
 
 func nala_showbuiltin_info(args ...object.Object) object.Object {
@@ -318,7 +377,8 @@ var builtins = MapofIDtoBuiltin{
 	"keys":   &object.BuiltIn{Fn: nala_hashmap_keys, Desc: "returns the keys of a HashMap in an Array"},
 	"values": &object.BuiltIn{Fn: nala_hashmap_values, Desc: "returns the keys of a HashMap in an Array"},
 	"items":  &object.BuiltIn{Fn: nala_hashmap_items, Desc: "returns an Array of Arrays containing Key, Value of a HashMap."},
-	"ins":    &object.BuiltIn{Fn: nala_hashmap_insert, Desc: "inserts a Value at a Key in a HashMap"},
+	"ins":    &object.BuiltIn{Fn: nala_insert, Desc: "inserts a Value at a Key/Index in a HashMap/Array"},
+	"del":    &object.BuiltIn{Fn: nala_delete, Desc: "delete the Value at a Key/Index from a HashMap/Array"},
 	"copy":   &object.BuiltIn{Fn: nala_copy, Desc: "returns a copy of an Array or HashMap"},
 	"sb":     &object.BuiltIn{Fn: nil},
 	"sd":     &object.BuiltIn{Fn: nala_showbuiltin_info, Desc: "takes a builtin functions and shows the description"},

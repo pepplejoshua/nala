@@ -40,7 +40,7 @@ func Start(in io.Reader, out io.Writer) {
 
 		prog := p.ParseProgram()
 		if hasErrors(p, out) {
-			io.WriteString(out, fmt.Sprintf("Couldn't read Nala Functions Source from %q", pth))
+			io.WriteString(out, fmt.Sprintf("Couldn't read Nala Functions Source from %q\n", pth))
 			printParseErrors(out, p.Errors())
 		}
 

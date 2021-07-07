@@ -30,3 +30,5 @@ let product = fn(arr) {
 };
 
 let info = {"name": "Nala", "version": "0.0.9", "author": "Iwarilama"};
+
+let incr = fn(x, in) { return x + in }
