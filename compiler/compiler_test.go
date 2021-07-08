@@ -166,12 +166,12 @@ func testInstructions(expIns []opcode.Instructions, bcIns opcode.Instructions) e
 	concat := concatInstructions(expIns)
 
 	if len(bcIns) != len(concat) {
-		return fmt.Errorf("wrong instruction length.\nwant=%q, got=%q", concat, bcIns)
+		return fmt.Errorf("wrong instruction length.\nwant=%q\ngot=%q", concat, bcIns)
 	}
 
 	for i, ins := range concat {
 		if bcIns[i] != ins {
-			return fmt.Errorf("wrong instruction at %d.\nwant=%q\ngot=%q", i, ins, bcIns[i])
+			return fmt.Errorf("wrong instruction at %d.\nwant=%q\ngot=%q", i, concat, bcIns)
 		}
 	}
 
@@ -302,19 +302,37 @@ func TestBooleanExpressions(t *testing.T) {
 	runCompilerTests(t, tests)
 }
 
+// each conditional ends with a Pop since it is an ExpressionStatement
 func TestConditionals(t *testing.T) {
 	tests := []CompilerTest{
 		{
-			input:             "if (true) { 10 }; 3333;",
+			input:             "if (true) { 10; }; 3333;",
 			expectedConstants: []interface{}{10, 3333},
 			expectedInstructions: []opcode.Instructions{
-				opcode.Make(opcode.OpTrue),             // 0000 + 1
-				opcode.Make(opcode.OpJumpNotTruthy, 7), // 0001 + 3
-				opcode.Make(opcode.OpConstant, 0),      // 0004 + 3
-				opcode.Make(opcode.OpPop),              // 0007 + 1
-				opcode.Make(opcode.OpConstant, 1),      // 0008 + 3
-				opcode.Make(opcode.OpPop),              //0011 + 1
-				// 0012
+				opcode.Make(opcode.OpTrue),              // 0000 + 1
+				opcode.Make(opcode.OpJumpNotTruthy, 10), // 0001 + 3
+				opcode.Make(opcode.OpConstant, 0),       // 0004 + 3
+				opcode.Make(opcode.OpJump, 11),          // 0007 + 3
+				opcode.Make(opcode.OpNil),               // 0010 + 1
+				opcode.Make(opcode.OpPop),               // 0011 + 1
+				opcode.Make(opcode.OpConstant, 1),       // 0012 + 3
+				opcode.Make(opcode.OpPop),               //0015 + 1
+				// 0016
+			},
+		},
+		{
+			input:             "if (true) { 10; } else { 25 }; 3333;",
+			expectedConstants: []interface{}{10, 25, 3333},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpTrue),              // 0000 + 1
+				opcode.Make(opcode.OpJumpNotTruthy, 10), // 0001 + 3
+				opcode.Make(opcode.OpConstant, 0),       // 0004 + 3
+				opcode.Make(opcode.OpJump, 13),          // 0007 + 3
+				opcode.Make(opcode.OpConstant, 1),       // 0010 + 3
+				opcode.Make(opcode.OpPop),               // 0013 + 1
+				opcode.Make(opcode.OpConstant, 2),       // 0014 + 3
+				opcode.Make(opcode.OpPop),               //0017 + 1
+				// 0018
 			},
 		},
 	}

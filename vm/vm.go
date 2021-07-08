@@ -18,6 +18,7 @@ var (
 		Value:       false,
 		HashableKey: &object.HashKey{},
 	}
+	NIL = &object.Nil{}
 )
 
 type VM struct {
@@ -77,6 +78,22 @@ func (vm *VM) Run() error {
 			}
 		case opcode.OpNegateBool, opcode.OpNegateInt:
 			err := vm.executeUnaryOperation(op)
+			if err != nil {
+				return err
+			}
+		case opcode.OpJump:
+			newPos := int(opcode.ReadUInt16(vm.instructions[insPtr+1:]))
+			insPtr = newPos - 1 // execute the jump
+		case opcode.OpJumpNotTruthy:
+			newPos := int(opcode.ReadUInt16(vm.instructions[insPtr+1:]))
+			insPtr += 2 // we have read 2 bytes (16 bits)
+
+			cond := vm.pop()
+			if !isTruthy(cond) {
+				insPtr = newPos - 1 // perform JumpNotTruthy, else continue executing
+			}
+		case opcode.OpNil:
+			err := vm.push(NIL)
 			if err != nil {
 				return err
 			}
@@ -246,4 +263,28 @@ func New(bc *compiler.ByteCode) *VM {
 		stack:        make([]object.Object, StackSize),
 		sp:           0,
 	}
+}
+
+func isTruthy(value object.Object) bool {
+	switch value.Type() {
+	case object.INTEGER_OBJ:
+		switch value.Inspect() {
+		case "0":
+			return false
+		default:
+			return true
+		}
+	case object.BOOLEAN_OBJ:
+		switch value {
+		case TRUE:
+			return true
+		case FALSE:
+			return false
+		}
+	case object.NIL_OBJ:
+		return false
+	default:
+		return true
+	}
+	return false
 }
