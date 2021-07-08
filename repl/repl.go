@@ -2,13 +2,16 @@ package repl
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"nala/compiler"
 	"nala/evaluator"
 	"nala/lexer"
 	"nala/object"
 	"nala/parser"
+	"nala/vm"
 	"os"
 )
 
@@ -24,10 +27,15 @@ func Start(in io.Reader, out io.Writer) {
 	env := object.NewEnvironment()
 	// pre read some of handwritten functions from files
 	readNalaFunctions(env, out)
+	vmSelector := flag.Bool("vm", false, "use Virtual Machine")
+	flag.Parse()
 
+	if *vmSelector {
+		fmt.Println("using VM...")
+	}
 	args := os.Args[1:]
 
-	if len(args) == 1 {
+	if len(args) == 1 && args[0] != "-vm=true" {
 		fName := args[0]
 		pth := "./nl/" + fName + ".nl"
 		// fmt.Println(pth)
@@ -88,11 +96,31 @@ func Start(in io.Reader, out io.Writer) {
 		if hasErrors(p, out) {
 			printParseErrors(out, p.Errors())
 		} else {
-			res := evaluator.Eval(prog, env)
-			if res != nil {
-				io.WriteString(out, res.Inspect()+"\n")
+			var res object.Object
+			if *vmSelector {
+
+				compiler := compiler.New()
+				err := compiler.Compile(prog)
+				if err != nil {
+					fmt.Println(fmt.Errorf("compiler error: %s", err))
+				}
+				vm := vm.New(compiler.ByteCode())
+				err = vm.Run()
+				if err != nil {
+					fmt.Println(fmt.Errorf("vm error: %s", err))
+					continue
+				}
+
+				stackElem := vm.LastPoppedElement()
+				io.WriteString(out, stackElem.Inspect()+"\n")
+				io.WriteString(out, compiler.ByteCode().Instructions.String()+"\n")
 			} else {
-				io.WriteString(out, "NIL\n")
+				res = evaluator.Eval(prog, env)
+				if res != nil {
+					io.WriteString(out, res.Inspect()+"\n")
+				} else {
+					io.WriteString(out, "NIL\n")
+				}
 			}
 		}
 	}
