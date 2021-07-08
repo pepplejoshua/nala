@@ -71,24 +71,28 @@ const (
 	OpFalse
 	OpNegateInt
 	OpNegateBool
+	OpJumpNotTruthy
+	OpJump
 )
 
 var definitions = map[OpCode]*Definition{
-	OpConstant:   {"OpConstant", []int{2}}, // since the operand for OpConstant is 2, we can only reference 65536 constants (counting 0)
-	OpAdd:        {"OpAdd", []int{}},
-	OpSubtract:   {"OpSubtract", []int{}},
-	OpMultiply:   {"OpMultiply", []int{}},
-	OpDivide:     {"OpDivide", []int{}},
-	OpModulo:     {"OpModulo", []int{}},
-	OpGThan:      {"OpGreaterThan", []int{}},
-	OpLThan:      {"OpLessThan", []int{}},
-	OpEqual:      {"OpEqual", []int{}},
-	OpNotEqual:   {"OpNotEqual", []int{}},
-	OpTrue:       {"OpTrue", []int{}},
-	OpFalse:      {"OpFalse", []int{}},
-	OpPop:        {"OpPop", []int{}},
-	OpNegateBool: {"OpNegateBool", []int{}},
-	OpNegateInt:  {"OpNegateInt", []int{}},
+	OpConstant:      {"OpConstant", []int{2}}, // since the operand for OpConstant is 2, we can only reference 65536 constants (counting 0)
+	OpAdd:           {"OpAdd", []int{}},
+	OpSubtract:      {"OpSubtract", []int{}},
+	OpMultiply:      {"OpMultiply", []int{}},
+	OpDivide:        {"OpDivide", []int{}},
+	OpModulo:        {"OpModulo", []int{}},
+	OpGThan:         {"OpGreaterThan", []int{}},
+	OpLThan:         {"OpLessThan", []int{}},
+	OpEqual:         {"OpEqual", []int{}},
+	OpNotEqual:      {"OpNotEqual", []int{}},
+	OpTrue:          {"OpTrue", []int{}},
+	OpFalse:         {"OpFalse", []int{}},
+	OpPop:           {"OpPop", []int{}},
+	OpNegateBool:    {"OpNegateBool", []int{}},
+	OpNegateInt:     {"OpNegateInt", []int{}},
+	OpJumpNotTruthy: {"OpJumpNotTruthy", []int{2}}, // this sets a limit of Instruction 0-65534 jump addresses
+	OpJump:          {"OpJump", []int{2}},          // so they are both 16 bits wide
 }
 
 func Lookup(op byte) (*Definition, error) {

@@ -70,13 +70,15 @@ func (c *Compiler) Compile(node ast.Node) error {
 			c.emit(opcode.OpMultiply)
 		case "%":
 			c.emit(opcode.OpModulo)
-		case ">":
+		case ">": // can elide OpLThan into OpGThan by compiling in reverse (right before left)
+			// and then pushing OPGThan onto the stack
 			c.emit(opcode.OpGThan)
 		case "<":
 			c.emit(opcode.OpLThan)
 		case "==":
 			c.emit(opcode.OpEqual)
-		case "!=":
+		case "!=": // can elide into combo of ! and ==. First compile like normal, then push
+			// OpEqual and then OpNegateBool
 			c.emit(opcode.OpNotEqual)
 		default:
 			return fmt.Errorf("unknown operator %s", node.Operator)

@@ -30,17 +30,17 @@ func TestIntegerArithmetic(t *testing.T) {
 		},
 		{
 			input:             "2 - 2",
-			expectedConstants: []interface{}{1, 2},
+			expectedConstants: []interface{}{2},
 			expectedInstructions: []opcode.Instructions{
 				opcode.Make(opcode.OpConstant, 0),
-				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpConstant, 0),
 				opcode.Make(opcode.OpSubtract),
 				opcode.Make(opcode.OpPop),
 			},
 		},
 		{
 			input:             "3 * 1",
-			expectedConstants: []interface{}{1, 2},
+			expectedConstants: []interface{}{3, 1},
 			expectedInstructions: []opcode.Instructions{
 				opcode.Make(opcode.OpConstant, 0),
 				opcode.Make(opcode.OpConstant, 1),
@@ -50,20 +50,20 @@ func TestIntegerArithmetic(t *testing.T) {
 		},
 		{
 			input:             "2 / 2",
-			expectedConstants: []interface{}{1, 2},
+			expectedConstants: []interface{}{2},
 			expectedInstructions: []opcode.Instructions{
 				opcode.Make(opcode.OpConstant, 0),
-				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpConstant, 0),
 				opcode.Make(opcode.OpDivide),
 				opcode.Make(opcode.OpPop),
 			},
 		},
 		{
 			input:             "2 % 2",
-			expectedConstants: []interface{}{1, 2},
+			expectedConstants: []interface{}{2},
 			expectedInstructions: []opcode.Instructions{
 				opcode.Make(opcode.OpConstant, 0),
-				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpConstant, 0),
 				opcode.Make(opcode.OpModulo),
 				opcode.Make(opcode.OpPop),
 			},
@@ -75,6 +75,35 @@ func TestIntegerArithmetic(t *testing.T) {
 				opcode.Make(opcode.OpConstant, 0),
 				opcode.Make(opcode.OpPop),
 				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input:             "2 > 2",
+			expectedConstants: []interface{}{2},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpGThan),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input:             "2 < 2",
+			expectedConstants: []interface{}{2},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpLThan),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input:             "-20",
+			expectedConstants: []interface{}{20},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpNegateInt),
 				opcode.Make(opcode.OpPop),
 			},
 		},
@@ -99,11 +128,13 @@ func runCompilerTests(t *testing.T, tests []CompilerTest) {
 
 		err = testInstructions(tt.expectedInstructions, bytecode.Instructions)
 		if err != nil {
+			fmt.Println(tt.input)
 			t.Fatalf("testInstructions failed: %s", err)
 		}
 
 		err = testConstants(tt.expectedConstants, bytecode.Constants)
 		if err != nil {
+			fmt.Println(tt.input)
 			t.Fatalf("testConstants failed: %s", err)
 		}
 	}
@@ -186,6 +217,104 @@ func TestBooleanExpressions(t *testing.T) {
 			expectedInstructions: []opcode.Instructions{
 				opcode.Make(opcode.OpFalse),
 				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input:             "1 > 2",
+			expectedConstants: []interface{}{1, 2},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpGThan),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input:             "1 < 2",
+			expectedConstants: []interface{}{1, 2},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpLThan),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input:             "1 == 2",
+			expectedConstants: []interface{}{1, 2},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpEqual),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input:             "1 != 2",
+			expectedConstants: []interface{}{1, 2},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpNotEqual),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input:             "true == true",
+			expectedConstants: []interface{}{},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpTrue),
+				opcode.Make(opcode.OpTrue),
+				opcode.Make(opcode.OpEqual),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input:             "true != false",
+			expectedConstants: []interface{}{},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpTrue),
+				opcode.Make(opcode.OpFalse),
+				opcode.Make(opcode.OpNotEqual),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input:             "!false",
+			expectedConstants: []interface{}{},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpFalse),
+				opcode.Make(opcode.OpNegateBool),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input:             "!true",
+			expectedConstants: []interface{}{},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpTrue),
+				opcode.Make(opcode.OpNegateBool),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+	}
+
+	runCompilerTests(t, tests)
+}
+
+func TestConditionals(t *testing.T) {
+	tests := []CompilerTest{
+		{
+			input:             "if (true) { 10 }; 3333;",
+			expectedConstants: []interface{}{10, 3333},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpTrue),             // 0000 + 1
+				opcode.Make(opcode.OpJumpNotTruthy, 7), // 0001 + 3
+				opcode.Make(opcode.OpConstant, 0),      // 0004 + 3
+				opcode.Make(opcode.OpPop),              // 0007 + 1
+				opcode.Make(opcode.OpConstant, 1),      // 0008 + 3
+				opcode.Make(opcode.OpPop),              //0011 + 1
+				// 0012
 			},
 		},
 	}
