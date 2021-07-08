@@ -24,6 +24,7 @@ func (ins Instructions) String() string {
 		operands, read := ReadOperands(def, ins[i+1:])
 
 		fmt.Fprintf(&out, "%04d %s\n", i, ins.fmtInstruction(def, operands))
+
 		i += read + 1
 	}
 	return out.String()
@@ -33,14 +34,18 @@ func (ins Instructions) fmtInstruction(def *Definition, operands []int) string {
 	opCount := len(def.OperandWidths)
 
 	if opCount != len(operands) {
-		return fmt.Sprintf("ERRORL operand len %d does not match defined %d\n", len(operands), opCount)
+		return fmt.Sprintf("ERROR: operand len %d does not match defined %d\n", len(operands), opCount)
 	}
 
 	switch opCount {
 	case 0:
 		return def.Name
 	case 1:
-		return fmt.Sprintf("%s %d", def.Name, operands[0])
+		if def.Name == "OpJump" || def.Name == "OpJumpNotTruthy" {
+			return fmt.Sprintf("%s %04d", def.Name, operands[0])
+		} else {
+			return fmt.Sprintf("%s %d", def.Name, operands[0])
+		}
 	}
 
 	return fmt.Sprintf("ERROR: unhandled opCount for %s\n", def.Name)
