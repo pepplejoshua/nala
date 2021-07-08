@@ -76,12 +76,38 @@ func (vm *VM) Run() error {
 				return err
 			}
 		case opcode.OpNegateBool, opcode.OpNegateInt:
-
+			err := vm.executeUnaryOperation(op)
+			if err != nil {
+				return err
+			}
 		}
 
 	}
 
 	return nil
+}
+
+func (vm *VM) executeUnaryOperation(op opcode.OpCode) error {
+	right := vm.pop()
+
+	switch r := right.(type) {
+	case *object.Integer:
+		if op != opcode.OpNegateInt {
+			return fmt.Errorf("unknown integer operator: %d", op)
+		} else {
+			res := -r.Value
+			return vm.push(&object.Integer{Value: res})
+		}
+	case *object.Boolean:
+		if op != opcode.OpNegateBool {
+			return fmt.Errorf("unknown boolean operator: %d", op)
+		} else {
+			res := !r.Value
+			return vm.push(&object.Boolean{Value: res})
+		}
+	default:
+		return fmt.Errorf("unsupported type %s for unary operation", r.Type())
+	}
 }
 
 func (vm *VM) executeBinaryOperation(op opcode.OpCode) error {
@@ -109,7 +135,7 @@ func (vm *VM) executeBinaryOperation(op opcode.OpCode) error {
 		}
 		return vm.executeBooleanBinaryOperation(op, lVal.Value, rVal.Value)
 	default:
-		return fmt.Errorf("unsupported types for binary operation")
+		return fmt.Errorf("unsupported types %s and %s for binary operation", left.Type(), right.Type())
 	}
 }
 
