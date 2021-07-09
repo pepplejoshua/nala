@@ -79,6 +79,8 @@ const (
 	OpJumpNotTruthy
 	OpJump
 	OpNil
+	OpGetGlobal
+	OpSetGlobal
 )
 
 var definitions = map[OpCode]*Definition{
@@ -100,6 +102,8 @@ var definitions = map[OpCode]*Definition{
 	OpJumpNotTruthy: {"OpJumpNotTruthy", []int{2}}, // this sets a limit of Instruction 0-65534 jump addresses
 	OpJump:          {"OpJump", []int{2}},          // so they are both 16 bits wide
 	OpNil:           {"OpNil", []int{}},
+	OpSetGlobal:     {"OpSetGlobal", []int{2}},
+	OpGetGlobal:     {"OpGetGlobal", []int{2}},
 }
 
 func Lookup(op byte) (*Definition, error) {

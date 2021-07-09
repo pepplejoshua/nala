@@ -8,6 +8,7 @@ import (
 )
 
 const StackSize = 2048
+const GlobalsSize = 65536
 
 var (
 	TRUE = &object.Boolean{
@@ -24,6 +25,7 @@ var (
 type VM struct {
 	constants    []object.Object
 	instructions opcode.Instructions
+	globals      []object.Object
 
 	stack []object.Object
 	sp    int // ALways points to the next value Top of stack is stack[sp-1]
@@ -94,6 +96,21 @@ func (vm *VM) Run() error {
 			}
 		case opcode.OpNil:
 			err := vm.push(NIL)
+			if err != nil {
+				return err
+			}
+		case opcode.OpSetGlobal:
+			globalIndex := opcode.ReadUInt16(vm.instructions[insPtr+1:])
+
+			insPtr += 2
+
+			vm.globals[globalIndex] = vm.pop() // set the global at that position to the top of stack
+		case opcode.OpGetGlobal:
+			globalIndex := opcode.ReadUInt16(vm.instructions[insPtr+1:])
+
+			insPtr += 2
+
+			err := vm.push(vm.globals[globalIndex])
 			if err != nil {
 				return err
 			}
@@ -260,9 +277,16 @@ func New(bc *compiler.ByteCode) *VM {
 	return &VM{
 		constants:    bc.Constants,
 		instructions: bc.Instructions,
+		globals:      make([]object.Object, GlobalsSize),
 		stack:        make([]object.Object, StackSize),
 		sp:           0,
 	}
+}
+
+func NewWithGlobalsStore(bc *compiler.ByteCode, globs []object.Object) *VM {
+	vm := New(bc)
+	vm.globals = globs
+	return vm
 }
 
 func isTruthy(value object.Object) bool {

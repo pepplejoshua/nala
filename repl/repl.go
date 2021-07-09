@@ -26,6 +26,11 @@ func Start(in io.Reader, out io.Writer) {
 	scanner := bufio.NewScanner(in)
 	env := object.NewEnvironment()
 	// pre read some of handwritten functions from files
+	constants := []object.Object{}
+	globals := make([]object.Object, vm.GlobalsSize)
+	symbolTable := compiler.NewSymbolTable()
+
+	// IMPLEMENT COMPILATION DOWN THERE USING 3 state vars above
 	readNalaFunctions(env, out)
 	vmSelector := flag.Bool("vm", false, "use Virtual Machine")
 	flag.Parse()
@@ -99,20 +104,23 @@ func Start(in io.Reader, out io.Writer) {
 			var res object.Object
 			if *vmSelector {
 
-				compiler := compiler.New()
+				compiler := compiler.NewWithState(symbolTable, constants)
 				err := compiler.Compile(prog)
 				if err != nil {
 					fmt.Println(fmt.Errorf("compiler error: %s", err))
 				}
-				vm := vm.New(compiler.ByteCode())
-				err = vm.Run()
+				machine := vm.NewWithGlobalsStore(compiler.ByteCode(), globals)
+				err = machine.Run()
 				if err != nil {
 					fmt.Println(fmt.Errorf("vm error: %s", err))
 					continue
 				}
 
-				stackElem := vm.LastPoppedElement()
+				stackElem := machine.LastPoppedElement()
 				io.WriteString(out, stackElem.Inspect()+"\n")
+
+				io.WriteString(out, "\n*DISASSEMBLED BYTECODE*\n")
+				io.WriteString(out, "************************\n")
 				io.WriteString(out, compiler.ByteCode().Instructions.String()+"\n")
 			} else {
 				res = evaluator.Eval(prog, env)

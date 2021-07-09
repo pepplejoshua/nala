@@ -14,7 +14,8 @@ type EmittedInstruction struct {
 
 type Compiler struct {
 	instructions opcode.Instructions
-	constants    []object.Object
+	constants    []object.Object // handles language constants (integers and other objects)
+	symbolTable  *SymbolTable    // handles identifier bindings
 
 	recentInstruction   EmittedInstruction
 	previousInstruction EmittedInstruction
@@ -29,9 +30,17 @@ func New() *Compiler {
 	return &Compiler{
 		instructions:        opcode.Instructions{},
 		constants:           []object.Object{},
+		symbolTable:         NewSymbolTable(),
 		recentInstruction:   EmittedInstruction{},
 		previousInstruction: EmittedInstruction{},
 	}
+}
+
+func NewWithState(s *SymbolTable, constants []object.Object) *Compiler {
+	compiler := New()
+	compiler.symbolTable = s
+	compiler.constants = constants
+	return compiler
 }
 
 func (c *Compiler) ByteCode() *ByteCode {
@@ -107,6 +116,19 @@ func (c *Compiler) Compile(node ast.Node) error {
 		default:
 			return fmt.Errorf("unknown operator %s", node.Operator)
 		}
+	case *ast.LetStatement:
+		err := c.Compile(node.Value)
+		if err != nil {
+			return err
+		}
+		symbol := c.symbolTable.Define(node.Name.Value)
+		c.emit(opcode.OpSetGlobal, symbol.Index)
+	case *ast.Identifier:
+		symbol, ok := c.symbolTable.Resolve(node.Value)
+		if !ok {
+			return fmt.Errorf("undefined variable %s", node.Value)
+		}
+		c.emit(opcode.OpGetGlobal, symbol.Index)
 	case *ast.BlockStatement:
 		for _, s := range node.Statements {
 			err := c.Compile(s)
