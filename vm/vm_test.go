@@ -98,6 +98,25 @@ func testExpectedObject(t *testing.T, expected interface{}, actual object.Object
 		if actual != NIL {
 			t.Errorf("object is not Nil. %T (%+v)", actual, actual)
 		}
+	case []int:
+		array, ok := actual.(*object.Array)
+		if !ok {
+			t.Errorf("object not Array: %T (%+v)", actual, actual)
+			return
+		}
+
+		if len(array.Elements) != len(expected) {
+			t.Errorf("wrong num of elements. want=%q, got=%d", len(expected), len(array.Elements))
+			return
+		}
+
+		for i, expElem := range expected {
+			err := testIntegerObject(int64(expElem), array.Elements[i])
+			if err != nil {
+				t.Errorf("testIntegerObject failed: %s", err)
+			}
+		}
+
 	}
 }
 
@@ -131,6 +150,16 @@ func TestGlobalLetStatements(t *testing.T) {
 		{"let one = 1; one", 1},
 		{"let one = 1; let two = 2; one + two", 3},
 		{"let one = 1; let two = one + one; one + two;", 3},
+	}
+
+	runVmTests(t, tests)
+}
+
+func TestArrayLiterals(t *testing.T) {
+	tests := []vmTest{
+		{"[]", []int{}},
+		{"[1, 2, 3]", []int{1, 2, 3}},
+		{"[1 + 2, 3 * 4, 5 + 6]", []int{3, 12, 11}},
 	}
 
 	runVmTests(t, tests)

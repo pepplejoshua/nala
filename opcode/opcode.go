@@ -23,7 +23,7 @@ func (ins Instructions) String() string {
 		}
 		operands, read := ReadOperands(def, ins[i+1:])
 
-		fmt.Fprintf(&out, "%04d %s\n", i, ins.fmtInstruction(def, operands))
+		fmt.Fprintf(&out, "%04d....%s....[%d bytes]\n", i, ins.fmtInstruction(def, operands), i+read+1)
 
 		i += read + 1
 	}
@@ -81,6 +81,7 @@ const (
 	OpNil
 	OpGetGlobal
 	OpSetGlobal
+	OpArray
 )
 
 var definitions = map[OpCode]*Definition{
@@ -104,6 +105,7 @@ var definitions = map[OpCode]*Definition{
 	OpNil:           {"OpNil", []int{}},
 	OpSetGlobal:     {"OpSetGlobal", []int{2}},
 	OpGetGlobal:     {"OpGetGlobal", []int{2}},
+	OpArray:         {"OpArray", []int{2}},
 }
 
 func Lookup(op byte) (*Definition, error) {

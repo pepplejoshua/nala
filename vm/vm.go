@@ -114,11 +114,33 @@ func (vm *VM) Run() error {
 			if err != nil {
 				return err
 			}
+		case opcode.OpArray:
+			numElems := int(opcode.ReadUInt16(vm.instructions[insPtr+1:]))
+			insPtr += 2
+
+			start := vm.sp - numElems
+			array := vm.buildArray(start, vm.sp)
+			vm.sp = start
+
+			err := vm.push(array)
+			if err != nil {
+				return err
+			}
 		}
 
 	}
 
 	return nil
+}
+
+func (vm *VM) buildArray(start int, end int) object.Object {
+	elems := make([]object.Object, end-start)
+
+	for i := start; i < end; i++ {
+		elems[i-start] = vm.stack[i]
+	}
+
+	return &object.Array{Elements: elems}
 }
 
 func (vm *VM) executeUnaryOperation(op opcode.OpCode) error {

@@ -180,6 +180,14 @@ func (c *Compiler) Compile(node ast.Node) error {
 
 		afterAlternative := len(c.instructions)
 		c.changeOperand(jmpPos, afterAlternative)
+	case *ast.ArrayLiteral:
+		for _, el := range node.Elements {
+			err := c.Compile(el)
+			if err != nil {
+				return err
+			}
+		}
+		c.emit(opcode.OpArray, len(node.Elements))
 	case *ast.IntegerLiteral:
 		integer := &object.Integer{Value: node.Value}
 		c.emit(opcode.OpConstant, c.addConstant(integer))

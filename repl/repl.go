@@ -21,6 +21,7 @@ const FUNCSPATH = "./nl/functions.nl"
 
 // const FUNCSPATH = "./nl/test.nl"
 
+// TODO: TO BE CLEANED UP
 func Start(in io.Reader, out io.Writer) {
 	// this wraps the input with a Buffer that we can Scan?
 	scanner := bufio.NewScanner(in)
@@ -108,6 +109,7 @@ func Start(in io.Reader, out io.Writer) {
 				err := compiler.Compile(prog)
 				if err != nil {
 					fmt.Println(fmt.Errorf("compiler error: %s", err))
+					continue
 				}
 				machine := vm.NewWithGlobalsStore(compiler.ByteCode(), globals)
 				err = machine.Run()

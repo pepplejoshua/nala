@@ -20,15 +20,20 @@ type SymbolTable struct {
 func (st *SymbolTable) Define(id string) Symbol {
 	// can check if symbol actually already exists and reuse it's index.
 	// but not sure of the implications of that just yet
-	sym := Symbol{
-		Name:  id,
-		Scope: GlobalScope,
-		Index: st.numDefinitions,
-	}
+	existing, ok := st.Resolve(id)
+	if ok {
+		return existing
+	} else {
+		sym := Symbol{
+			Name:  id,
+			Scope: GlobalScope,
+			Index: st.numDefinitions,
+		}
 
-	st.store[id] = sym
-	st.numDefinitions++
-	return sym
+		st.store[id] = sym
+		st.numDefinitions++
+		return sym
+	}
 }
 
 func (st *SymbolTable) Resolve(id string) (Symbol, bool) {
