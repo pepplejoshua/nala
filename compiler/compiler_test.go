@@ -421,3 +421,84 @@ func TestArrayLiterals(t *testing.T) {
 
 	runCompilerTests(t, tests)
 }
+
+func TestHashMapLiteral(t *testing.T) {
+	tests := []CompilerTest{
+		{
+			input:             "{}",
+			expectedConstants: []interface{}{},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpHashMap, 0),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input:             "{1: 2, 3: 4, 5: 6}",
+			expectedConstants: []interface{}{1, 2, 3, 4, 5, 6},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpConstant, 2),
+				opcode.Make(opcode.OpConstant, 3),
+				opcode.Make(opcode.OpConstant, 4),
+				opcode.Make(opcode.OpConstant, 5),
+				opcode.Make(opcode.OpHashMap, 6),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input:             "{1: 2 + 3, 4: 5 * 6}",
+			expectedConstants: []interface{}{1, 2, 3, 4, 5, 6},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpConstant, 2),
+				opcode.Make(opcode.OpAdd),
+				opcode.Make(opcode.OpConstant, 3),
+				opcode.Make(opcode.OpConstant, 4),
+				opcode.Make(opcode.OpConstant, 5),
+				opcode.Make(opcode.OpMultiply),
+				opcode.Make(opcode.OpHashMap, 4),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+	}
+
+	runCompilerTests(t, tests)
+}
+
+func TestIndexExpressions(t *testing.T) {
+	tests := []CompilerTest{
+		{
+			input:             "[1, 2, 3][1 + 1]",
+			expectedConstants: []interface{}{1, 2, 3},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpConstant, 2),
+				opcode.Make(opcode.OpArray, 3),
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpAdd),
+				opcode.Make(opcode.OpIndex),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input:             "{1: 2}[2 - 1]",
+			expectedConstants: []interface{}{1, 2},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpHashMap, 2),
+				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpSubtract),
+				opcode.Make(opcode.OpIndex),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+	}
+
+	runCompilerTests(t, tests)
+}

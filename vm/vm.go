@@ -121,8 +121,29 @@ func (vm *VM) Run() error {
 			start := vm.sp - numElems
 			array := vm.buildArray(start, vm.sp)
 			vm.sp = start
-
 			err := vm.push(array)
+			if err != nil {
+				return err
+			}
+		case opcode.OpHashMap:
+			numElems := int(opcode.ReadUInt16(vm.instructions[insPtr+1:]))
+			insPtr += 2
+
+			start := vm.sp - numElems
+			hashMap, err := vm.buildHashMap(start, vm.sp)
+			if err != nil {
+				return err
+			}
+			vm.sp = start
+			err = vm.push(hashMap)
+			if err != nil {
+				return err
+			}
+		case opcode.OpIndex:
+			index := vm.pop()
+			left := vm.pop()
+
+			err := vm.executeIndexExpression(left, index)
 			if err != nil {
 				return err
 			}
@@ -133,7 +154,7 @@ func (vm *VM) Run() error {
 	return nil
 }
 
-func (vm *VM) buildArray(start int, end int) object.Object {
+func (vm *VM) buildArray(start, end int) object.Object {
 	elems := make([]object.Object, end-start)
 
 	for i := start; i < end; i++ {
@@ -141,6 +162,30 @@ func (vm *VM) buildArray(start int, end int) object.Object {
 	}
 
 	return &object.Array{Elements: elems}
+}
+
+func (vm *VM) buildHashMap(start, end int) (object.Object, error) {
+	hashedPairs := make(map[object.HashKey]object.HashPair)
+
+	for i := start; i < end; i += 2 {
+		key := vm.stack[i]
+		val := vm.stack[i+1]
+
+		pair := object.HashPair{
+			Key:   key,
+			Value: val,
+		}
+
+		hashKey, ok := key.(object.Hashable)
+		if !ok {
+			return nil, fmt.Errorf("unusable as a hash key: %s", key.Type())
+		}
+		hashedPairs[hashKey.HashKey()] = pair
+	}
+
+	return &object.HashMap{
+		Pairs: hashedPairs,
+	}, nil
 }
 
 func (vm *VM) executeUnaryOperation(op opcode.OpCode) error {
@@ -277,6 +322,44 @@ func (vm *VM) executeStringBinaryOperation(op opcode.OpCode, left, right string)
 		}
 	}
 	return nil
+}
+
+func (vm *VM) executeIndexExpression(left, index object.Object) error {
+	switch {
+	case left.Type() == object.ARRAY_OBJ && index.Type() == object.INTEGER_OBJ:
+		return vm.executeArrayIndex(left, index)
+	case left.Type() == object.HASHMAP_OBJ:
+		return vm.executeHashMapIndex(left, index)
+	default:
+		return fmt.Errorf("index operator not supportedL %s", left.Type())
+	}
+}
+
+func (vm *VM) executeArrayIndex(left, index object.Object) error {
+	arrObj := left.(*object.Array)
+	i := index.(*object.Integer).Value
+	max := int64(len(arrObj.Elements) - 1)
+
+	if i < 0 || i > max {
+		return vm.push(NIL)
+	}
+
+	return vm.push(arrObj.Elements[i])
+}
+
+func (vm *VM) executeHashMapIndex(left, index object.Object) error {
+	hashObj := left.(*object.HashMap)
+	key, ok := index.(object.Hashable)
+	if !ok {
+		return fmt.Errorf("unusable as as hash key: %s", index.Type())
+	}
+
+	pair, ok := hashObj.Pairs[key.HashKey()]
+	if !ok {
+		return vm.push(NIL)
+	}
+
+	return vm.push(pair.Value)
 }
 
 func (vm *VM) push(o object.Object) error {
