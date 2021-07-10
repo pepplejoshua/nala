@@ -531,6 +531,129 @@ func TestFunctions(t *testing.T) {
 				opcode.Make(opcode.OpPop),
 			},
 		},
+		{
+			input: "fn() { 5 + 10 }",
+			expectedConstants: []interface{}{
+				5,
+				10,
+				[]opcode.Instructions{
+					opcode.Make(opcode.OpConstant, 0),
+					opcode.Make(opcode.OpConstant, 1),
+					opcode.Make(opcode.OpAdd),
+					opcode.Make(opcode.OpReturnValue),
+				},
+			},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 2),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input: "fn() { 1; 2 } ",
+			expectedConstants: []interface{}{
+				1,
+				2,
+				[]opcode.Instructions{
+					opcode.Make(opcode.OpConstant, 0),
+					opcode.Make(opcode.OpPop),
+					opcode.Make(opcode.OpConstant, 1),
+					opcode.Make(opcode.OpReturnValue),
+				},
+			},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 2),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input: "fn() { }",
+			expectedConstants: []interface{}{
+				[]opcode.Instructions{
+					opcode.Make(opcode.OpReturn),
+				},
+			},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+	}
+
+	runCompilerTests(t, tests)
+}
+
+func TestCompilerScopes(t *testing.T) {
+	comp := New()
+	if comp.scopeIndex != 0 {
+		t.Errorf("scopeIndex wrong. got=%d, want=%d", comp.scopeIndex, 0)
+	}
+	comp.emit(opcode.OpMultiply)
+
+	comp.enterScope()
+	if comp.scopeIndex != 1 {
+		t.Errorf("scopeIndex wrong. got=%d, want=%d", comp.scopeIndex, 1)
+	}
+	comp.emit(opcode.OpSubtract)
+	if len(comp.scopes[comp.scopeIndex].instructions) != 1 {
+		t.Errorf("instructions length wrong. got=%d", len(comp.scopes[comp.scopeIndex].instructions))
+	}
+	recent := comp.scopes[comp.scopeIndex].recentInstruction
+	if recent.OpCode != opcode.OpSubtract {
+		t.Errorf("recentInstruction.OpCode wrong. got=%d, want=%d", recent.OpCode, opcode.OpSubtract)
+	}
+	comp.leaveScope()
+
+	if comp.scopeIndex != 0 {
+		t.Errorf("scopeIndex wrong. got=%d, want=%d", comp.scopeIndex, 0)
+	}
+	comp.emit(opcode.OpAdd)
+	if len(comp.scopes[comp.scopeIndex].instructions) != 2 {
+		t.Errorf("instructions length wrong. got=%d", len(comp.scopes[comp.scopeIndex].instructions))
+	}
+	recent = comp.scopes[comp.scopeIndex].recentInstruction
+	if recent.OpCode != opcode.OpAdd {
+		t.Errorf("recentInstruction.OpCode wrong. got=%d, want=%d", recent.OpCode, opcode.OpSubtract)
+	}
+	previous := comp.scopes[comp.scopeIndex].previousInstruction
+	if previous.OpCode != opcode.OpMultiply {
+		t.Errorf("previousInstruction.OpCode wrong. got=%d, want=%d", previous.OpCode, opcode.OpMultiply)
+	}
+}
+
+func TestFunctionCalls(t *testing.T) {
+	tests := []CompilerTest{
+		{
+			input: "fn() {24}()",
+			expectedConstants: []interface{}{
+				24,
+				[]opcode.Instructions{
+					opcode.Make(opcode.OpConstant, 0),
+					opcode.Make(opcode.OpReturnValue),
+				},
+			},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpCall),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input: "let noArgs = fn() { 24 }; noArgs()",
+			expectedConstants: []interface{}{
+				24,
+				[]opcode.Instructions{
+					opcode.Make(opcode.OpConstant, 0),
+					opcode.Make(opcode.OpReturnValue),
+				},
+			},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpSetGlobal, 0),
+				opcode.Make(opcode.OpGetGlobal, 0),
+				opcode.Make(opcode.OpCall),
+				opcode.Make(opcode.OpPop),
+			},
+		},
 	}
 
 	runCompilerTests(t, tests)

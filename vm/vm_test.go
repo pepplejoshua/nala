@@ -226,3 +226,56 @@ func TestIndexExpressions(t *testing.T) {
 
 	runVmTests(t, tests)
 }
+
+func TestCallingFunctionsWithoutArguments(t *testing.T) {
+	tests := []vmTest{
+		{
+			input:    "let fivePlusTen = fn() { 5 + 10 }; fivePlusTen();",
+			expected: 15,
+		},
+		{
+			input: `
+			let one = fn() { 1; };
+			let two = fn() { 2; };
+			one() + two();`,
+			expected: 3,
+		},
+		{
+			input: `
+			let a = fn() { 1; };
+			let b = fn() { a() + 1; };
+			let c = fn() { b() + 1; };
+			c()`,
+			expected: 3,
+		},
+		{
+			input: `
+			let early = fn() { return 99; 100; };
+			early();`,
+			expected: 99,
+		},
+	}
+
+	runVmTests(t, tests)
+}
+
+func TestFunctionsWithoutReturnValue(t *testing.T) {
+	tests := []vmTest{
+		{
+			input: `
+			let noRet = fn() {}; noRet();`,
+			expected: NIL,
+		},
+		{
+			input: `
+			let noRet1 = fn() { };
+			let noRet2 = fn() { noRet1(); };
+			noRet1();
+			noRet2();
+			`,
+			expected: NIL,
+		},
+	}
+
+	runVmTests(t, tests)
+}

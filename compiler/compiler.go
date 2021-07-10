@@ -13,13 +13,18 @@ type EmittedInstruction struct {
 	Position int
 }
 
-type Compiler struct {
-	instructions opcode.Instructions
-	constants    []object.Object // handles language constants (integers and other objects)
-	symbolTable  *SymbolTable    // handles identifier bindings
+type CompilationScope struct {
+	instructions        opcode.Instructions // instruction to be returned in *object.CompiledFunction
+	recentInstruction   EmittedInstruction  // recent instruction for this compilation scope
+	previousInstruction EmittedInstruction  // instruction before recent for this compilation scope
+}
 
-	recentInstruction   EmittedInstruction
-	previousInstruction EmittedInstruction
+type Compiler struct {
+	constants   []object.Object // handles language constants (integers and other objects)
+	symbolTable *SymbolTable    // handles identifier bindings
+
+	scopes     []CompilationScope // slice allowing separate compilation of individual scoped objects (e.g Functions)
+	scopeIndex int                // index of current scope of compilation
 }
 
 type ByteCode struct {
@@ -28,12 +33,16 @@ type ByteCode struct {
 }
 
 func New() *Compiler {
-	return &Compiler{
+	mainScope := CompilationScope{
 		instructions:        opcode.Instructions{},
-		constants:           []object.Object{},
-		symbolTable:         NewSymbolTable(),
 		recentInstruction:   EmittedInstruction{},
 		previousInstruction: EmittedInstruction{},
+	}
+	return &Compiler{
+		constants:   []object.Object{},
+		symbolTable: NewSymbolTable(),
+		scopes:      []CompilationScope{mainScope},
+		scopeIndex:  0,
 	}
 }
 
@@ -46,7 +55,7 @@ func NewWithState(s *SymbolTable, constants []object.Object) *Compiler {
 
 func (c *Compiler) ByteCode() *ByteCode {
 	return &ByteCode{
-		Instructions: c.instructions,
+		Instructions: c.currentInstructions(),
 		Constants:    c.constants,
 	}
 }
@@ -67,7 +76,43 @@ func (c *Compiler) Compile(node ast.Node) error {
 			return err
 		}
 		c.emit(opcode.OpPop)
+	case *ast.FunctionLiteral:
+		c.enterScope()
 
+		err := c.Compile(node.Body)
+		if err != nil {
+			return err
+		}
+
+		// checks for an implicit return value
+		if c.recentInstructionIs(opcode.OpPop) {
+			c.replaceRecentPopWithReturn() // this pop means there is an implicit return value
+			// from an expression. let statements will have no pop
+		}
+		// the lack of the pop or ReturnValue shows theres no explicit or implicit return
+		// so we put a Return OpCode in that code
+		if !c.recentInstructionIs(opcode.OpReturnValue) {
+			c.emit(opcode.OpReturn)
+		}
+
+		instructions := c.leaveScope()
+		compiledFn := &object.CompiledFunction{
+			Instructions: instructions,
+		}
+		c.emit(opcode.OpConstant, c.addConstant(compiledFn))
+	case *ast.ReturnStatement:
+		err := c.Compile(node.ReturnValue)
+		if err != nil {
+			return err
+		}
+		c.emit(opcode.OpReturnValue)
+	case *ast.CallExpression:
+		err := c.Compile(node.Function)
+		if err != nil {
+			return err
+		}
+
+		c.emit(opcode.OpCall)
 	case *ast.InfixExpression:
 		err := c.Compile(node.Left)
 		if err != nil {
@@ -151,15 +196,15 @@ func (c *Compiler) Compile(node ast.Node) error {
 		}
 		// remove errant Pop statement (if it exists), so we can arbitrarily return
 		// values like if (true) { 5 } should return a 5.
-		if c.recentInstructionIsPop() {
-			c.removeLastPop()
+		if c.recentInstructionIs(opcode.OpPop) {
+			c.removeRecentPop()
 		}
 		// insert jump to finish consequence section
 		// return program to normal flow
 		jmpPos := c.emit(opcode.OpJump, 9999)
 
 		// fix the jmpNotTruthy address
-		afterConsequencePos := len(c.instructions)
+		afterConsequencePos := len(c.currentInstructions())
 		// update jump location with correct address
 		c.changeOperand(jmpNTPos, afterConsequencePos)
 
@@ -174,12 +219,12 @@ func (c *Compiler) Compile(node ast.Node) error {
 				return err
 			}
 
-			if c.recentInstructionIsPop() {
-				c.removeLastPop()
+			if c.recentInstructionIs(opcode.OpPop) {
+				c.removeRecentPop()
 			}
 		}
 
-		afterAlternative := len(c.instructions)
+		afterAlternative := len(c.currentInstructions())
 		c.changeOperand(jmpPos, afterAlternative)
 	case *ast.ArrayLiteral:
 		for _, el := range node.Elements {
@@ -239,25 +284,41 @@ func (c *Compiler) Compile(node ast.Node) error {
 }
 
 func (c *Compiler) changeOperand(opPos int, operand int) {
-	op := opcode.OpCode(c.instructions[opPos])
+	op := opcode.OpCode(c.currentInstructions()[opPos])
 	newInstruction := opcode.Make(op, operand)
 
 	c.replaceInstruction(opPos, newInstruction)
 }
 
 func (c *Compiler) replaceInstruction(pos int, newInstruction []byte) {
+	curIns := c.currentInstructions()
 	for i := 0; i < len(newInstruction); i++ {
-		c.instructions[pos+i] = newInstruction[i]
+		curIns[pos+i] = newInstruction[i]
 	}
 }
 
-func (c *Compiler) recentInstructionIsPop() bool {
-	return c.recentInstruction.OpCode == opcode.OpPop
+func (c *Compiler) replaceRecentPopWithReturn() {
+	recentPos := c.currentScope().recentInstruction.Position
+	c.replaceInstruction(recentPos, opcode.Make(opcode.OpReturnValue))
+	c.scopes[c.scopeIndex].recentInstruction.OpCode = opcode.OpReturnValue
 }
 
-func (c *Compiler) removeLastPop() {
-	c.instructions = c.instructions[:c.recentInstruction.Position]
-	c.recentInstruction = c.previousInstruction
+func (c *Compiler) recentInstructionIs(op opcode.OpCode) bool {
+	if len(c.currentInstructions()) == 0 {
+		return false
+	}
+	return c.currentScope().recentInstruction.OpCode == op
+}
+
+func (c *Compiler) removeRecentPop() {
+	recent := c.currentScope().recentInstruction
+	prev := c.currentScope().previousInstruction
+
+	old := c.currentInstructions()
+	new := old[:recent.Position]
+
+	c.scopes[c.scopeIndex].instructions = new
+	c.scopes[c.scopeIndex].previousInstruction = prev
 }
 
 func (c *Compiler) emit(op opcode.OpCode, operands ...int) int {
@@ -269,16 +330,17 @@ func (c *Compiler) emit(op opcode.OpCode, operands ...int) int {
 }
 
 func (c *Compiler) setRecentInstruction(op opcode.OpCode, pos int) {
-	prev := c.recentInstruction
+	prev := c.currentScope().recentInstruction
 	recent := EmittedInstruction{OpCode: op, Position: pos}
 
-	c.previousInstruction = prev
-	c.recentInstruction = recent
+	c.scopes[c.scopeIndex].previousInstruction = prev
+	c.scopes[c.scopeIndex].recentInstruction = recent
 }
 
 func (c *Compiler) addInstruction(ins []byte) int {
-	posNewIns := len(c.instructions) // returns the index of the just inserted instruction
-	c.instructions = append(c.instructions, ins...)
+	posNewIns := len(c.currentInstructions()) // returns the index of the just inserted instruction
+	newIns := append(c.currentInstructions(), ins...)
+	c.scopes[c.scopeIndex].instructions = newIns
 	return posNewIns
 }
 
@@ -307,4 +369,102 @@ func (c *Compiler) isExistingConstant(obj object.Object) (int, bool) {
 		}
 	}
 	return -1, false
+}
+
+func (c *Compiler) currentInstructions() opcode.Instructions {
+	return c.scopes[c.scopeIndex].instructions
+}
+
+func (c *Compiler) currentScope() CompilationScope {
+	return c.scopes[c.scopeIndex]
+}
+
+func (c *Compiler) enterScope() {
+	scope := CompilationScope{
+		instructions:        opcode.Instructions{},
+		recentInstruction:   EmittedInstruction{},
+		previousInstruction: EmittedInstruction{},
+	}
+	c.scopes = append(c.scopes, scope)
+	c.scopeIndex++
+}
+
+func (c *Compiler) leaveScope() opcode.Instructions {
+	ins := c.currentInstructions()
+	c.scopes = c.scopes[:len(c.scopes)-1]
+	c.scopeIndex--
+
+	return ins
+}
+
+func (c *Compiler) Decompile(ins opcode.Instructions, constants []object.Object, globals []object.Object, offset string) {
+	i := 0
+	for i < len(ins) {
+		def, err := opcode.Lookup(ins[i]) // get operand definition
+		if err != nil {
+			fmt.Printf("ERROR: %s\n", err)
+			continue
+		}
+		operands, read := opcode.ReadOperands(def, ins[i+1:])
+
+		fmt.Printf(offset+"%04d....%s....[%d bytes]\n", i, c.fmtInstruction(def, operands), i+read+1)
+		c.showOperand(def, operands, constants, globals, offset+"            ")
+		i += read + 1
+	}
+}
+
+func (c *Compiler) fmtInstruction(def *opcode.Definition, operands []int) string {
+	opCount := len(def.OperandWidths)
+
+	if opCount != len(operands) {
+		return fmt.Sprintf("ERROR: operand len %d does not match defined %d\n", len(operands), opCount)
+	}
+
+	switch opCount {
+	case 0:
+		return def.Name
+	case 1:
+		if def.Name == "OpJump" || def.Name == "OpJumpNotTruthy" {
+			return fmt.Sprintf("%s %04d", def.Name, operands[0])
+		} else {
+			return fmt.Sprintf("%s %d", def.Name, operands[0])
+		}
+	}
+
+	return fmt.Sprintf("ERROR: unhandled opCount for %s\n", def.Name)
+}
+
+func (c *Compiler) showOperand(def *opcode.Definition, operands []int, constants, globals []object.Object, offset string) {
+	opCount := len(def.OperandWidths)
+
+	if opCount != len(operands) {
+		fmt.Printf("ERROR: operand len %d does not match defined %d\n", len(operands), opCount)
+	}
+	if opCount == 0 {
+		return
+	}
+	if len(constants) > 0 && len(globals) > 0 {
+		if def.Name == "OpConstant" {
+			Ind := operands[0]
+			op := constants[Ind]
+			switch op := op.(type) {
+			case *object.Integer, *object.Boolean,
+				*object.String, *object.Array, *object.HashMap, *object.Function:
+				fmt.Println(offset + "[Constant: " + op.Inspect() + "]")
+			case *object.CompiledFunction:
+				c.Decompile(op.Instructions, constants, globals, offset)
+			}
+		} else if def.Name == "OpGetGlobal" {
+			op := globals[operands[0]]
+			switch op := op.(type) {
+			case *object.Integer, *object.Boolean,
+				*object.String, *object.Array, *object.HashMap, *object.Function:
+				fmt.Println(offset + "[Global: " + op.Inspect() + "]")
+			case *object.CompiledFunction:
+				c.Decompile(op.Instructions, constants, globals, offset)
+			}
+		}
+	}
+
+	// } else if def.Name == "OpGetGlobal" || def.Name == "OpSetGlobal"
 }

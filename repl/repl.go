@@ -105,13 +105,13 @@ func Start(in io.Reader, out io.Writer) {
 			var res object.Object
 			if *vmSelector {
 
-				compiler := compiler.NewWithState(symbolTable, constants)
-				err := compiler.Compile(prog)
+				comp := compiler.NewWithState(symbolTable, constants)
+				err := comp.Compile(prog)
 				if err != nil {
 					fmt.Println(fmt.Errorf("compiler error: %s", err))
 					continue
 				}
-				machine := vm.NewWithGlobalsStore(compiler.ByteCode(), globals)
+				machine := vm.NewWithGlobalsStore(comp.ByteCode(), globals)
 				err = machine.Run()
 				if err != nil {
 					fmt.Println(fmt.Errorf("vm error: %s", err))
@@ -121,9 +121,17 @@ func Start(in io.Reader, out io.Writer) {
 				stackElem := machine.LastPoppedElement()
 				io.WriteString(out, stackElem.Inspect()+"\n")
 
-				io.WriteString(out, "\n*DISASSEMBLED BYTECODE*\n")
-				io.WriteString(out, "************************\n")
-				io.WriteString(out, compiler.ByteCode().Instructions.String()+"\n")
+				constants = comp.ByteCode().Constants
+				globals = machine.Globals()
+
+				if stackElem.Type() != object.COMPILED_FUNCTION_OBJ {
+					io.WriteString(out, "\n*DISASSEMBLED BYTECODE*\n")
+					io.WriteString(out, "************************\n")
+					ins := comp.ByteCode().Instructions
+					comp.Decompile(ins, constants, globals, "")
+					println()
+				}
+				// io.WriteString(out, comp.ByteCode().Instructions.String()+"\n")
 			} else {
 				res = evaluator.Eval(prog, env)
 				if res != nil {
