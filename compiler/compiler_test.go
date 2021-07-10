@@ -144,19 +144,28 @@ func parse(in string) ast.Node {
 	return parser.New(lexer.New(in)).ParseProgram()
 }
 
-func testConstants(expCons []interface{}, bcCons []object.Object) error {
-	if len(expCons) != len(bcCons) {
-		return fmt.Errorf("wrong number of constants. got=%d, want=%d", len(bcCons), len(expCons))
+func testConstants(expCons []interface{}, actual []object.Object) error {
+	if len(expCons) != len(actual) {
+		return fmt.Errorf("wrong number of constants. got=%d, want=%d", len(actual), len(expCons))
 	}
 
 	for i, cons := range expCons {
 		switch cons := cons.(type) {
 		case int:
-			err := testIntegerObject(int64(cons), bcCons[i])
+			err := testIntegerObject(int64(cons), actual[i])
 			if err != nil {
 				return fmt.Errorf("constant %d - testIntegerObject failed: %s", i, err)
 			}
+		case []opcode.Instructions:
+			fn, ok := actual[i].(*object.CompiledFunction)
+			if !ok {
+				return fmt.Errorf("constant %d - not a function: %T", i, actual[i])
+			}
 
+			err := testInstructions(cons, fn.Instructions)
+			if err != nil {
+				return fmt.Errorf("constant %d - testInstructions failed: %s", i, err)
+			}
 		}
 	}
 	return nil
@@ -495,6 +504,30 @@ func TestIndexExpressions(t *testing.T) {
 				opcode.Make(opcode.OpConstant, 0),
 				opcode.Make(opcode.OpSubtract),
 				opcode.Make(opcode.OpIndex),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+	}
+
+	runCompilerTests(t, tests)
+}
+
+func TestFunctions(t *testing.T) {
+	tests := []CompilerTest{
+		{
+			input: "fn() { return 5 + 10 }",
+			expectedConstants: []interface{}{
+				5,
+				10,
+				[]opcode.Instructions{
+					opcode.Make(opcode.OpConstant, 0),
+					opcode.Make(opcode.OpConstant, 1),
+					opcode.Make(opcode.OpAdd),
+					opcode.Make(opcode.OpReturnValue),
+				},
+			},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 2),
 				opcode.Make(opcode.OpPop),
 			},
 		},
