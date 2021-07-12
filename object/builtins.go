@@ -265,7 +265,7 @@ func nala_insert(args ...Object) Object {
 		val := args[2]
 		hsh := hashKey.HashKey()
 		ob.Pairs[hsh] = HashPair{Key: hashKey.(Object), Value: val}
-		return nil
+		return NIL
 	case *Array:
 		ind, ok := args[1].(*Integer)
 		if !ok {

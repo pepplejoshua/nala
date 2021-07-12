@@ -38,9 +38,16 @@ func New() *Compiler {
 		recentInstruction:   EmittedInstruction{},
 		previousInstruction: EmittedInstruction{},
 	}
+
+	symbolTable := NewSymbolTable()
+
+	for i, v := range object.Builtins {
+		symbolTable.DefineBuiltin(i, v.Name)
+	}
+
 	return &Compiler{
 		constants:   []object.Object{},
-		symbolTable: NewSymbolTable(),
+		symbolTable: symbolTable,
 		scopes:      []CompilationScope{mainScope},
 		scopeIndex:  0,
 	}
@@ -197,6 +204,8 @@ func (c *Compiler) Compile(node ast.Node) error {
 			c.emit(opcode.OpGetGlobal, symbol.Index)
 		} else if symbol.Scope == LocalScope {
 			c.emit(opcode.OpGetLocal, symbol.Index)
+		} else if symbol.Scope == BuiltInScope {
+			c.emit(opcode.OpGetBuiltin, symbol.Index)
 		}
 	case *ast.BlockStatement:
 		for _, s := range node.Statements {
@@ -492,7 +501,8 @@ func (c *Compiler) showOperand(def *opcode.Definition, operands []int, constants
 				}
 			}
 		} else if def.Name == "OpGetBuiltin" {
-			op := object.Bui
+			builtin := object.Builtins[operands[0]]
+			fmt.Println(offset + "[Builtin: " + builtin.Name + "]")
 		}
 
 	}

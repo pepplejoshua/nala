@@ -202,3 +202,51 @@ func TestResolveNestedLocal(t *testing.T) {
 		}
 	}
 }
+
+func TestDefineResolveBuiltins(t *testing.T) {
+	glob := NewSymbolTable()
+	first := NewEnclosedSymbolTable(glob)
+	sec := NewEnclosedSymbolTable(first)
+
+	expected := []Symbol{
+		{
+			Name:  "a",
+			Scope: BuiltInScope,
+			Index: 0,
+		},
+		{
+			Name:  "c",
+			Scope: BuiltInScope,
+			Index: 1,
+		},
+		{
+			Name:  "e",
+			Scope: BuiltInScope,
+			Index: 2,
+		},
+		{
+			Name:  "f",
+			Scope: BuiltInScope,
+			Index: 3,
+		},
+	}
+
+	for i, v := range expected {
+		glob.DefineBuiltin(i, v.Name)
+	}
+
+	// make sure definition in Builtin scope is visible from every scope
+	for _, table := range []*SymbolTable{glob, first, sec} {
+		for _, sym := range expected {
+			res, ok := table.Resolve(sym.Name)
+			if !ok {
+				t.Errorf("name %s not resolvable", sym.Name)
+				continue
+			}
+
+			if res != sym {
+				t.Errorf("expected %s to resolve to %+v, got=%+v", sym.Name, sym, res)
+			}
+		}
+	}
+}

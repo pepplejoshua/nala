@@ -185,7 +185,7 @@ func (vm *VM) Run() error {
 			numArgs := int(opcode.ReadUInt8(ins[insPtr+1:]))
 			vm.currentFrame().ip++
 
-			err := vm.callFunction(numArgs)
+			err := vm.executeCall(numArgs)
 			if err != nil {
 				return err
 			}
@@ -208,6 +208,16 @@ func (vm *VM) Run() error {
 			if err != nil {
 				return err
 			}
+		case opcode.OpGetBuiltin:
+			builtinIndex := opcode.ReadUInt8(ins[insPtr+1:])
+			vm.currentFrame().ip++
+
+			def := object.Builtins[builtinIndex]
+
+			err := vm.push(def.BuiltIn)
+			if err != nil {
+				return err
+			}
 		}
 
 	}
@@ -215,13 +225,21 @@ func (vm *VM) Run() error {
 	return nil
 }
 
-func (vm *VM) callFunction(numArgs int) error {
+func (vm *VM) executeCall(numArgs int) error {
 	// reach down and get the function past the arguments
-	fn, ok := vm.stack[vm.sp-numArgs-1].(*object.CompiledFunction)
-	if !ok {
-		return fmt.Errorf("calling non-function%s", ".")
-	}
+	callable := vm.stack[vm.sp-numArgs-1]
 
+	switch callable := callable.(type) {
+	case *object.CompiledFunction:
+		return vm.callFunction(callable, numArgs)
+	case *object.BuiltIn:
+		return vm.callBuiltin(callable, numArgs)
+	default:
+		return fmt.Errorf("calling non-function and non-builtin%s", ".")
+	}
+}
+
+func (vm *VM) callFunction(fn *object.CompiledFunction, numArgs int) error {
 	if numArgs != fn.NumOfParameters {
 		return fmt.Errorf("wrong number of arguments: want=%d, got=%d", fn.NumOfParameters, numArgs)
 	}
@@ -229,6 +247,18 @@ func (vm *VM) callFunction(numArgs int) error {
 	vm.pushFrame(frame)
 	vm.sp = frame.basePointer + fn.NumOfLocals // this creates the hole
 	// to store and get local variables on the stack
+	return nil
+}
+
+func (vm *VM) callBuiltin(bi *object.BuiltIn, numArgs int) error {
+	args := vm.stack[vm.sp-numArgs : vm.sp]
+	res := bi.Fn(args...)
+	vm.sp = vm.sp - numArgs - 1 // move sp back to return position after function
+
+	err := vm.push(res)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

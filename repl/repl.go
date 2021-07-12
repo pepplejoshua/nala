@@ -31,6 +31,9 @@ func Start(in io.Reader, out io.Writer) {
 	globals := make([]object.Object, vm.GlobalsSize)
 	symbolTable := compiler.NewSymbolTable()
 
+	for i, v := range object.Builtins {
+		symbolTable.DefineBuiltin(i, v.Name)
+	}
 	// IMPLEMENT COMPILATION DOWN THERE USING 3 state vars above
 	readNalaFunctions(env, out)
 	vmSelector := flag.Bool("vm", false, "use Virtual Machine")
@@ -89,6 +92,15 @@ func Start(in io.Reader, out io.Writer) {
 			fmt.Println()
 			continue
 		}
+		if line == ".sb" {
+			fmt.Println(".builtins.")
+			fmt.Println(".========.")
+			for _, fn := range object.Builtins {
+				fmt.Println(fn.Name, ": ", fn.BuiltIn.Desc)
+			}
+			fmt.Println()
+			continue
+		}
 		// pl := lexer.New(line)
 		l := lexer.New(line)
 		p := parser.New(l)
@@ -124,13 +136,17 @@ func Start(in io.Reader, out io.Writer) {
 				constants = comp.ByteCode().Constants
 				globals = machine.Globals()
 
-				if stackElem.Type() != object.COMPILED_FUNCTION_OBJ {
-					io.WriteString(out, "\n*DISASSEMBLED BYTECODE*\n")
-					io.WriteString(out, "************************\n")
-					ins := comp.ByteCode().Instructions
-					comp.Decompile(ins, constants, globals, "", 0)
-					println()
-				}
+				// if stackElem.Type() != object.COMPILED_FUNCTION_OBJ &&
+				// 	stackElem.Type() != object.ERROR_OBJ &&
+				// 	stackElem.Type() != object.ARRAY_OBJ &&
+				// 	stackElem.Type() != object.HASHMAP_OBJ &&
+				// 	stackElem.Type() != object.BUILTIN_OBJ {
+				// 	io.WriteString(out, "\n*DISASSEMBLED BYTECODE*\n")
+				// 	io.WriteString(out, "************************\n")
+				// 	ins := comp.ByteCode().Instructions
+				// 	comp.Decompile(ins, constants, globals, "", 0)
+				// 	println()
+				// }
 				// io.WriteString(out, comp.ByteCode().Instructions.String()+"\n")
 			} else {
 				res = evaluator.Eval(prog, env)

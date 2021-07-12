@@ -777,3 +777,42 @@ func TestGlobalLetStatementScopes(t *testing.T) {
 
 	runCompilerTests(t, tests)
 }
+
+func TestBuiltins(t *testing.T) {
+	tests := []CompilerTest{
+		{
+			input: "len([]); push([], 1);",
+			expectedConstants: []interface{}{
+				1,
+			},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpGetBuiltin, 0),
+				opcode.Make(opcode.OpArray, 0),
+				opcode.Make(opcode.OpCall, 1),
+				opcode.Make(opcode.OpPop),
+				opcode.Make(opcode.OpGetBuiltin, 5),
+				opcode.Make(opcode.OpArray, 0),
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpCall, 2),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input: "fn() { len([]) }",
+			expectedConstants: []interface{}{
+				[]opcode.Instructions{
+					opcode.Make(opcode.OpGetBuiltin, 0),
+					opcode.Make(opcode.OpArray, 0),
+					opcode.Make(opcode.OpCall, 1),
+					opcode.Make(opcode.OpReturnValue),
+				},
+			},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+	}
+
+	runCompilerTests(t, tests)
+}
