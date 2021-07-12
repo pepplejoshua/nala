@@ -79,6 +79,10 @@ func (c *Compiler) Compile(node ast.Node) error {
 	case *ast.FunctionLiteral:
 		c.enterScope()
 
+		for _, p := range node.Parameters {
+			c.symbolTable.Define(p.Value)
+		}
+
 		err := c.Compile(node.Body)
 		if err != nil {
 			return err
@@ -95,9 +99,12 @@ func (c *Compiler) Compile(node ast.Node) error {
 			c.emit(opcode.OpReturn)
 		}
 
+		numLocals := c.symbolTable.numDefinitions // number of locals defined in this scope
 		instructions := c.leaveScope()
 		compiledFn := &object.CompiledFunction{
-			Instructions: instructions,
+			Instructions:    instructions,
+			NumOfLocals:     numLocals,
+			NumOfParameters: len(node.Parameters),
 		}
 		c.emit(opcode.OpConstant, c.addConstant(compiledFn))
 	case *ast.ReturnStatement:
@@ -112,7 +119,13 @@ func (c *Compiler) Compile(node ast.Node) error {
 			return err
 		}
 
-		c.emit(opcode.OpCall)
+		for _, a := range node.Arguments {
+			err := c.Compile(a)
+			if err != nil {
+				return err
+			}
+		}
+		c.emit(opcode.OpCall, len(node.Arguments))
 	case *ast.InfixExpression:
 		err := c.Compile(node.Left)
 		if err != nil {
@@ -163,18 +176,28 @@ func (c *Compiler) Compile(node ast.Node) error {
 			return fmt.Errorf("unknown operator %s", node.Operator)
 		}
 	case *ast.LetStatement:
+		// by defining a location where the function can be found,
+		// we allow recursion
+		symbol := c.symbolTable.Define(node.Name.Value)
 		err := c.Compile(node.Value)
 		if err != nil {
 			return err
 		}
-		symbol := c.symbolTable.Define(node.Name.Value)
-		c.emit(opcode.OpSetGlobal, symbol.Index)
+		if symbol.Scope == GlobalScope {
+			c.emit(opcode.OpSetGlobal, symbol.Index)
+		} else if symbol.Scope == LocalScope {
+			c.emit(opcode.OpSetLocal, symbol.Index)
+		}
 	case *ast.Identifier:
 		symbol, ok := c.symbolTable.Resolve(node.Value)
 		if !ok {
 			return fmt.Errorf("undefined variable %s", node.Value)
 		}
-		c.emit(opcode.OpGetGlobal, symbol.Index)
+		if symbol.Scope == GlobalScope {
+			c.emit(opcode.OpGetGlobal, symbol.Index)
+		} else if symbol.Scope == LocalScope {
+			c.emit(opcode.OpGetLocal, symbol.Index)
+		}
 	case *ast.BlockStatement:
 		for _, s := range node.Statements {
 			err := c.Compile(s)
@@ -387,6 +410,8 @@ func (c *Compiler) enterScope() {
 	}
 	c.scopes = append(c.scopes, scope)
 	c.scopeIndex++
+
+	c.symbolTable = NewEnclosedSymbolTable(c.symbolTable)
 }
 
 func (c *Compiler) leaveScope() opcode.Instructions {
@@ -394,10 +419,11 @@ func (c *Compiler) leaveScope() opcode.Instructions {
 	c.scopes = c.scopes[:len(c.scopes)-1]
 	c.scopeIndex--
 
+	c.symbolTable = c.symbolTable.Outer
 	return ins
 }
 
-func (c *Compiler) Decompile(ins opcode.Instructions, constants []object.Object, globals []object.Object, offset string) {
+func (c *Compiler) Decompile(ins opcode.Instructions, constants []object.Object, globals []object.Object, offset string, depth int) {
 	i := 0
 	for i < len(ins) {
 		def, err := opcode.Lookup(ins[i]) // get operand definition
@@ -408,7 +434,7 @@ func (c *Compiler) Decompile(ins opcode.Instructions, constants []object.Object,
 		operands, read := opcode.ReadOperands(def, ins[i+1:])
 
 		fmt.Printf(offset+"%04d....%s....[%d bytes]\n", i, c.fmtInstruction(def, operands), i+read+1)
-		c.showOperand(def, operands, constants, globals, offset+"            ")
+		c.showOperand(def, operands, constants, globals, offset+"            ", depth+1)
 		i += read + 1
 	}
 }
@@ -434,7 +460,7 @@ func (c *Compiler) fmtInstruction(def *opcode.Definition, operands []int) string
 	return fmt.Sprintf("ERROR: unhandled opCount for %s\n", def.Name)
 }
 
-func (c *Compiler) showOperand(def *opcode.Definition, operands []int, constants, globals []object.Object, offset string) {
+func (c *Compiler) showOperand(def *opcode.Definition, operands []int, constants, globals []object.Object, offset string, depth int) {
 	opCount := len(def.OperandWidths)
 
 	if opCount != len(operands) {
@@ -452,7 +478,7 @@ func (c *Compiler) showOperand(def *opcode.Definition, operands []int, constants
 				*object.String, *object.Array, *object.HashMap, *object.Function:
 				fmt.Println(offset + "[Constant: " + op.Inspect() + "]")
 			case *object.CompiledFunction:
-				c.Decompile(op.Instructions, constants, globals, offset)
+				c.Decompile(op.Instructions, constants, globals, offset, depth+1)
 			}
 		} else if def.Name == "OpGetGlobal" {
 			op := globals[operands[0]]
@@ -461,9 +487,14 @@ func (c *Compiler) showOperand(def *opcode.Definition, operands []int, constants
 				*object.String, *object.Array, *object.HashMap, *object.Function:
 				fmt.Println(offset + "[Global: " + op.Inspect() + "]")
 			case *object.CompiledFunction:
-				c.Decompile(op.Instructions, constants, globals, offset)
+				if depth < 5 {
+					c.Decompile(op.Instructions, constants, globals, offset, depth+1)
+				}
 			}
+		} else if def.Name == "OpGetBuiltin" {
+			op := object.Bui
 		}
+
 	}
 
 	// } else if def.Name == "OpGetGlobal" || def.Name == "OpSetGlobal"

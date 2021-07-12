@@ -279,3 +279,124 @@ func TestFunctionsWithoutReturnValue(t *testing.T) {
 
 	runVmTests(t, tests)
 }
+
+func TestCallingFunctionsWithBindings(t *testing.T) {
+	tests := []vmTest{
+		{
+			input:    `let one = fn() { let one = 1; one }; one();`,
+			expected: 1,
+		},
+		{
+			input: `let oneAndTwo = fn() { let one = 1; let two = 2; one + two };
+			oneAndTwo();`,
+			expected: 3,
+		},
+		{
+			input: `let oneAndTwo = fn() { let one = 1; let two = 2; one + two };
+			let threeAndFour = fn() { let three = 3; let four = 4; three + four };
+			oneAndTwo() + threeAndFour();`,
+			expected: 10,
+		},
+		{
+			input: `let firstFoo = fn() { let foo = 50; foo }
+			let secondFoo = fn() { let foo = 100; foo }
+			firstFoo() + secondFoo()`,
+			expected: 150,
+		},
+		{
+			input: `let globalSeed = 50;
+			let minusOne = fn() {
+				let num = 1;
+				globalSeed - num
+			}
+			let minusTwo = fn() {
+				let num = 2;
+				globalSeed - num
+			}
+			minusOne() + minusTwo()
+			`,
+			expected: 97,
+		},
+	}
+
+	runVmTests(t, tests)
+}
+
+func TestCallingFunctionsWithArgumentsAndBindings(t *testing.T) {
+	tests := []vmTest{
+		{
+			input:    `let id = fn(a) { a }; id(4)`,
+			expected: 4,
+		},
+		{
+			input:    `let sum = fn(a, b) { a + b }; sum(1, 2);`,
+			expected: 3,
+		},
+		{
+			input:    `let sum = fn(a, b) { let c = a + b; c }; sum(1, 2);`,
+			expected: 3,
+		},
+		{
+			input:    `let sum = fn(a, b) { let c = a + b; c }; sum(1, 2) + sum(3, 4);`,
+			expected: 10,
+		},
+		{
+			input: `
+			let sum = fn(a, b) { let c = a + b; c };
+			let outer = fn() { sum(1, 2) + sum(3, 4) }; outer()`,
+			expected: 10,
+		},
+		{
+			input: `
+			let globalNum = 10;
+			let sum = fn(a, b) {
+				let c = a + b;
+				c + globalNum
+			}
+			let outer = fn() {
+				sum(1, 2) + sum(3, 4) + globalNum;
+			}
+			
+			outer() + globalNum;`,
+			expected: 50,
+		},
+	}
+	runVmTests(t, tests)
+}
+
+func TestCallingFunctionsWithWrongArguments(t *testing.T) {
+	tests := []vmTest{
+		{
+			input:    "fn() { 1; }(1)",
+			expected: "wrong number of arguments: want=0, got=1",
+		},
+		{
+			input:    "fn(a) { a; }()",
+			expected: "wrong number of arguments: want=1, got=0",
+		},
+		{
+			input:    "fn(a, b) { a + b; }(1)",
+			expected: "wrong number of arguments: want=2, got=1",
+		},
+	}
+
+	for _, tt := range tests {
+		prog := parse(tt.input)
+		comp := compiler.New()
+
+		err := comp.Compile(prog)
+		if err != nil {
+			t.Errorf("compiler error: %s", err)
+		}
+
+		vm := New(comp.ByteCode())
+		err = vm.Run()
+		if err == nil {
+			t.Fatalf("expected VM error but resulted in none.")
+		}
+
+		if err.Error() != tt.expected {
+			t.Fatalf("wrong VM error: want=%q\ngot=%q", tt.expected, err)
+		}
+	}
+}

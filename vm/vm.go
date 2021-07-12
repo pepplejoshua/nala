@@ -163,8 +163,8 @@ func (vm *VM) Run() error {
 				return err
 			}
 		case opcode.OpReturn:
-			vm.popFrame()
-			vm.pop()
+			frame := vm.popFrame()
+			vm.sp = frame.basePointer - 1
 
 			err := vm.push(NIL)
 			if err != nil {
@@ -173,24 +173,62 @@ func (vm *VM) Run() error {
 		case opcode.OpReturnValue:
 			returnVal := vm.pop()
 
-			vm.popFrame()
-			vm.pop()
+			frame := vm.popFrame()
+			vm.sp = frame.basePointer - 1
 
 			err := vm.push(returnVal)
 			if err != nil {
 				return err
 			}
 		case opcode.OpCall:
-			fn, ok := vm.stack[vm.sp-1].(*object.CompiledFunction)
-			if !ok {
-				return fmt.Errorf("calling non-function%s", ".")
+			// get number of arguments for the function call
+			numArgs := int(opcode.ReadUInt8(ins[insPtr+1:]))
+			vm.currentFrame().ip++
+
+			err := vm.callFunction(numArgs)
+			if err != nil {
+				return err
 			}
-			frame := NewFrame(fn)
-			vm.pushFrame(frame)
+		case opcode.OpSetLocal:
+			localIndex := opcode.ReadUInt8(ins[insPtr+1:])
+			vm.currentFrame().ip += 1
+
+			frame := vm.currentFrame()
+
+			// use the frame's base pointer as an offset into the stack + the local's index
+			vm.stack[frame.basePointer+int(localIndex)] = vm.pop()
+		case opcode.OpGetLocal:
+			localIndex := opcode.ReadUInt8(ins[insPtr+1:])
+			vm.currentFrame().ip += 1
+
+			frame := vm.currentFrame()
+
+			// use the frame's base pointer as an offset into the stack + the local's index
+			err := vm.push(vm.stack[frame.basePointer+int(localIndex)])
+			if err != nil {
+				return err
+			}
 		}
 
 	}
 
+	return nil
+}
+
+func (vm *VM) callFunction(numArgs int) error {
+	// reach down and get the function past the arguments
+	fn, ok := vm.stack[vm.sp-numArgs-1].(*object.CompiledFunction)
+	if !ok {
+		return fmt.Errorf("calling non-function%s", ".")
+	}
+
+	if numArgs != fn.NumOfParameters {
+		return fmt.Errorf("wrong number of arguments: want=%d, got=%d", fn.NumOfParameters, numArgs)
+	}
+	frame := NewFrame(fn, vm.sp-numArgs) // move the basePointer even lower to include Arguments
+	vm.pushFrame(frame)
+	vm.sp = frame.basePointer + fn.NumOfLocals // this creates the hole
+	// to store and get local variables on the stack
 	return nil
 }
 
@@ -434,7 +472,7 @@ func (vm *VM) popFrame() *Frame {
 
 func New(bc *compiler.ByteCode) *VM {
 	mainFn := &object.CompiledFunction{Instructions: bc.Instructions}
-	mainFrame := NewFrame(mainFn)
+	mainFrame := NewFrame(mainFn, 0)
 
 	frames := make([]*Frame, MaxFrames)
 	frames[0] = mainFrame

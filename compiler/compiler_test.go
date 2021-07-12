@@ -587,6 +587,7 @@ func TestCompilerScopes(t *testing.T) {
 	if comp.scopeIndex != 0 {
 		t.Errorf("scopeIndex wrong. got=%d, want=%d", comp.scopeIndex, 0)
 	}
+	globalSymTable := comp.symbolTable
 	comp.emit(opcode.OpMultiply)
 
 	comp.enterScope()
@@ -601,10 +602,20 @@ func TestCompilerScopes(t *testing.T) {
 	if recent.OpCode != opcode.OpSubtract {
 		t.Errorf("recentInstruction.OpCode wrong. got=%d, want=%d", recent.OpCode, opcode.OpSubtract)
 	}
+
+	if comp.symbolTable.Outer != globalSymTable {
+		t.Errorf("compiler did not enclose SymbolTable")
+	}
 	comp.leaveScope()
 
 	if comp.scopeIndex != 0 {
 		t.Errorf("scopeIndex wrong. got=%d, want=%d", comp.scopeIndex, 0)
+	}
+	if comp.symbolTable != globalSymTable {
+		t.Errorf("compiler did not restore SymbolTable")
+	}
+	if comp.symbolTable.Outer != nil {
+		t.Errorf("compiler modified SymbolTable incorrectly")
 	}
 	comp.emit(opcode.OpAdd)
 	if len(comp.scopes[comp.scopeIndex].instructions) != 2 {
@@ -633,7 +644,7 @@ func TestFunctionCalls(t *testing.T) {
 			},
 			expectedInstructions: []opcode.Instructions{
 				opcode.Make(opcode.OpConstant, 1),
-				opcode.Make(opcode.OpCall),
+				opcode.Make(opcode.OpCall, 0),
 				opcode.Make(opcode.OpPop),
 			},
 		},
@@ -650,7 +661,115 @@ func TestFunctionCalls(t *testing.T) {
 				opcode.Make(opcode.OpConstant, 1),
 				opcode.Make(opcode.OpSetGlobal, 0),
 				opcode.Make(opcode.OpGetGlobal, 0),
-				opcode.Make(opcode.OpCall),
+				opcode.Make(opcode.OpCall, 0),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input: "let oneArgs = fn(a) { a }; oneArgs(24)",
+			expectedConstants: []interface{}{
+				[]opcode.Instructions{
+					opcode.Make(opcode.OpGetLocal, 0),
+					opcode.Make(opcode.OpReturnValue),
+				},
+				24,
+			},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpSetGlobal, 0),
+				opcode.Make(opcode.OpGetGlobal, 0),
+				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpCall, 1),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input: `let manyArgs = fn(a, b, c, d) { a; b; c; d; }; manyArgs(1, 2, 3, 4)`,
+			expectedConstants: []interface{}{
+				[]opcode.Instructions{
+					opcode.Make(opcode.OpGetLocal, 0),
+					opcode.Make(opcode.OpPop),
+					opcode.Make(opcode.OpGetLocal, 1),
+					opcode.Make(opcode.OpPop),
+					opcode.Make(opcode.OpGetLocal, 2),
+					opcode.Make(opcode.OpPop),
+					opcode.Make(opcode.OpGetLocal, 3),
+					opcode.Make(opcode.OpReturnValue),
+				},
+				1,
+				2,
+				3,
+				4,
+			},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpSetGlobal, 0),
+				opcode.Make(opcode.OpGetGlobal, 0),
+				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpConstant, 2),
+				opcode.Make(opcode.OpConstant, 3),
+				opcode.Make(opcode.OpConstant, 4),
+				opcode.Make(opcode.OpCall, 4),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+	}
+
+	runCompilerTests(t, tests)
+}
+
+func TestGlobalLetStatementScopes(t *testing.T) {
+	tests := []CompilerTest{
+		{
+			input: `let n = 55; fn() { n }`,
+			expectedConstants: []interface{}{
+				55,
+				[]opcode.Instructions{
+					opcode.Make(opcode.OpGetGlobal, 0),
+					opcode.Make(opcode.OpReturnValue),
+				},
+			},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpSetGlobal, 0),
+				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input: `fn() { let num = 55; num }`,
+			expectedConstants: []interface{}{
+				55,
+				[]opcode.Instructions{
+					opcode.Make(opcode.OpConstant, 0),
+					opcode.Make(opcode.OpSetLocal, 0),
+					opcode.Make(opcode.OpGetLocal, 0),
+					opcode.Make(opcode.OpReturnValue),
+				},
+			},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input: `fn() { let a = 55; let b = 77; a + b }`,
+			expectedConstants: []interface{}{
+				55,
+				77,
+				[]opcode.Instructions{
+					opcode.Make(opcode.OpConstant, 0),
+					opcode.Make(opcode.OpSetLocal, 0),
+					opcode.Make(opcode.OpConstant, 1),
+					opcode.Make(opcode.OpSetLocal, 1),
+					opcode.Make(opcode.OpGetLocal, 0),
+					opcode.Make(opcode.OpGetLocal, 1),
+					opcode.Make(opcode.OpAdd),
+					opcode.Make(opcode.OpReturnValue),
+				},
+			},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpConstant, 2),
 				opcode.Make(opcode.OpPop),
 			},
 		},

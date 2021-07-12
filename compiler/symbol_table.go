@@ -4,6 +4,7 @@ type SymbolScope string
 
 const (
 	GlobalScope SymbolScope = "GLOBAL"
+	LocalScope  SymbolScope = "LOCAL"
 )
 
 type Symbol struct {
@@ -13,6 +14,7 @@ type Symbol struct {
 }
 
 type SymbolTable struct {
+	Outer          *SymbolTable // enclosing symbol table
 	store          map[string]Symbol
 	numDefinitions int
 }
@@ -20,14 +22,19 @@ type SymbolTable struct {
 func (st *SymbolTable) Define(id string) Symbol {
 	// can check if symbol actually already exists and reuse it's index.
 	// but not sure of the implications of that just yet
-	existing, ok := st.Resolve(id)
+	existing, ok := st.store[id]
 	if ok {
 		return existing
 	} else {
 		sym := Symbol{
 			Name:  id,
-			Scope: GlobalScope,
 			Index: st.numDefinitions,
+		}
+
+		if st.Outer == nil {
+			sym.Scope = GlobalScope
+		} else {
+			sym.Scope = LocalScope
 		}
 
 		st.store[id] = sym
@@ -38,6 +45,9 @@ func (st *SymbolTable) Define(id string) Symbol {
 
 func (st *SymbolTable) Resolve(id string) (Symbol, bool) {
 	existing, ok := st.store[id]
+	if !ok && st.Outer != nil {
+		return st.Outer.Resolve(id)
+	}
 	return existing, ok
 }
 
@@ -47,4 +57,10 @@ func NewSymbolTable() *SymbolTable {
 		store:          s,
 		numDefinitions: 0,
 	}
+}
+
+func NewEnclosedSymbolTable(outer *SymbolTable) *SymbolTable {
+	s := NewSymbolTable()
+	s.Outer = outer
+	return s
 }

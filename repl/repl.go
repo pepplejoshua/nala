@@ -128,7 +128,7 @@ func Start(in io.Reader, out io.Writer) {
 					io.WriteString(out, "\n*DISASSEMBLED BYTECODE*\n")
 					io.WriteString(out, "************************\n")
 					ins := comp.ByteCode().Instructions
-					comp.Decompile(ins, constants, globals, "")
+					comp.Decompile(ins, constants, globals, "", 0)
 					println()
 				}
 				// io.WriteString(out, comp.ByteCode().Instructions.String()+"\n")

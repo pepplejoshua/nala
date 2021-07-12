@@ -23,7 +23,7 @@ func (ins Instructions) String() string {
 		}
 		operands, read := ReadOperands(def, ins[i+1:])
 
-		fmt.Fprintf(&out, "%04d....%s....[%d bytes]\n", i, ins.fmtInstruction(def, operands), i+read+1)
+		fmt.Fprintf(&out, "%04d %s\n", i, ins.fmtInstruction(def, operands))
 
 		i += read + 1
 	}
@@ -87,6 +87,9 @@ const (
 	OpCall
 	OpReturnValue
 	OpReturn
+	OpSetLocal
+	OpGetLocal
+	OpGetBuiltin
 )
 
 var definitions = map[OpCode]*Definition{
@@ -113,9 +116,12 @@ var definitions = map[OpCode]*Definition{
 	OpArray:         {"OpArray", []int{2}},
 	OpHashMap:       {"OpHashMap", []int{2}},
 	OpIndex:         {"OpIndex", []int{}},
-	OpCall:          {"OpCall", []int{}},
+	OpCall:          {"OpCall", []int{1}},
 	OpReturnValue:   {"OpReturnValue", []int{}},
 	OpReturn:        {"OpReturn", []int{}},
+	OpSetLocal:      {"OpSetLocal", []int{1}},
+	OpGetLocal:      {"OpGetLocal", []int{1}},
+	OpGetBuiltin:    {"OpGetBuiltin", []int{1}},
 }
 
 func Lookup(op byte) (*Definition, error) {
@@ -149,6 +155,8 @@ func Make(op OpCode, operands ...int) []byte {
 		switch width {
 		case 2:
 			binary.BigEndian.PutUint16(instruction[offset:offset+width], uint16(o))
+		case 1:
+			instruction[offset] = byte(o)
 		}
 		offset += width // update offset to now be past the recently added operand
 	}
@@ -163,6 +171,8 @@ func ReadOperands(def *Definition, ins Instructions) ([]int, int) {
 		switch width {
 		case 2:
 			operands[i] = int(ReadUInt16(ins[offset : offset+width]))
+		case 1:
+			operands[i] = int(ReadUInt8(ins[offset:]))
 		}
 		offset += width // update offset to now be past the recently added operand
 	}
@@ -172,4 +182,8 @@ func ReadOperands(def *Definition, ins Instructions) ([]int, int) {
 
 func ReadUInt16(ins Instructions) uint16 {
 	return binary.BigEndian.Uint16(ins)
+}
+
+func ReadUInt8(ins Instructions) uint8 {
+	return uint8(ins[0])
 }

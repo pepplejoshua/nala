@@ -25,6 +25,8 @@ const (
 	COMPILED_FUNCTION_OBJ = "COMPILED_FUNC"
 )
 
+var NIL = &Nil{}
+
 type Object interface {
 	Type() ObjectType
 	Inspect() string
@@ -113,7 +115,9 @@ func (f *Function) Inspect() string {
 }
 
 type CompiledFunction struct {
-	Instructions opcode.Instructions
+	Instructions    opcode.Instructions
+	NumOfLocals     int
+	NumOfParameters int
 }
 
 func (cf *CompiledFunction) Type() ObjectType { return COMPILED_FUNCTION_OBJ }
