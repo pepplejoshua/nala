@@ -250,3 +250,183 @@ func TestDefineResolveBuiltins(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveFree(t *testing.T) {
+	glob := NewSymbolTable()
+	glob.Define("a")
+	glob.Define("b")
+
+	first := NewEnclosedSymbolTable(glob)
+	first.Define("c")
+	first.Define("d")
+
+	second := NewEnclosedSymbolTable(first)
+	second.Define("e")
+	second.Define("f")
+
+	tests := []struct {
+		table               *SymbolTable
+		expectedSymbols     []Symbol
+		expectedFreeSymbols []Symbol
+	}{
+		{
+			table: first,
+			expectedSymbols: []Symbol{
+				{
+					Name:  "a",
+					Scope: GlobalScope,
+					Index: 0,
+				},
+				{
+					Name:  "b",
+					Scope: GlobalScope,
+					Index: 1,
+				},
+				{
+					Name:  "c",
+					Scope: LocalScope,
+					Index: 0,
+				},
+				{
+					Name:  "d",
+					Scope: LocalScope,
+					Index: 1,
+				},
+			},
+			expectedFreeSymbols: []Symbol{},
+		},
+		{
+			table: second,
+			expectedSymbols: []Symbol{
+				{
+					Name:  "a",
+					Scope: GlobalScope,
+					Index: 0,
+				},
+				{
+					Name:  "b",
+					Scope: GlobalScope,
+					Index: 1,
+				},
+				{
+					Name:  "c",
+					Scope: FreeScope,
+					Index: 0,
+				},
+				{
+					Name:  "d",
+					Scope: FreeScope,
+					Index: 1,
+				},
+				{
+					Name:  "e",
+					Scope: LocalScope,
+					Index: 0,
+				},
+				{
+					Name:  "f",
+					Scope: LocalScope,
+					Index: 1,
+				},
+			},
+			expectedFreeSymbols: []Symbol{
+				{
+					Name:  "c",
+					Scope: LocalScope,
+					Index: 0,
+				},
+				{
+					Name:  "d",
+					Scope: LocalScope,
+					Index: 1,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		for _, sym := range tt.expectedSymbols {
+			res, ok := tt.table.Resolve(sym.Name)
+			if !ok {
+				t.Errorf("name %s not resolvable", sym.Name)
+				continue
+			}
+
+			if res != sym {
+				t.Errorf("expected %s to resolve to %+v, got=%+v", sym.Name, sym, res)
+			}
+		}
+
+		if len(tt.table.FreeSymbols) != len(tt.expectedFreeSymbols) {
+			t.Errorf("wrong number of free symbols. got=%d, want=%d",
+				len(tt.table.FreeSymbols), len(tt.expectedFreeSymbols))
+			continue
+		}
+
+		for i, sym := range tt.expectedFreeSymbols {
+			res := tt.table.FreeSymbols[i]
+			if res != sym {
+				t.Errorf("wrong free symbol. got=%+v, want=%+v", res, sym)
+			}
+		}
+	}
+}
+
+func TestResolveUnresolvableFree(t *testing.T) {
+	glob := NewSymbolTable()
+	glob.Define("a")
+
+	first := NewEnclosedSymbolTable(glob)
+	first.Define("c")
+
+	second := NewEnclosedSymbolTable(first)
+	second.Define("e")
+	second.Define("f")
+
+	expected := []Symbol{
+		{
+			Name:  "a",
+			Scope: GlobalScope,
+			Index: 0,
+		},
+		{
+			Name:  "c",
+			Scope: FreeScope,
+			Index: 0,
+		},
+		{
+			Name:  "e",
+			Scope: LocalScope,
+			Index: 0,
+		},
+		{
+			Name:  "f",
+			Scope: LocalScope,
+			Index: 1,
+		},
+	}
+
+	for _, sym := range expected {
+		res, ok := second.Resolve(sym.Name)
+		if !ok {
+			t.Errorf("name %s not resolvable", sym.Name)
+			continue
+		}
+
+		if res != sym {
+			t.Errorf("expected %s to resolve to %+v, got=%+v", sym.Name, sym, res)
+		}
+	}
+
+	expectedUnresolvables := []string{
+		"b",
+		"d",
+	}
+
+	for _, name := range expectedUnresolvables {
+		_, ok := second.Resolve(name)
+		if ok {
+			t.Errorf("name %s resolved, but was expected not to", name)
+		}
+	}
+}

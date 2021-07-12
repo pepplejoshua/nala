@@ -46,6 +46,8 @@ func (ins Instructions) fmtInstruction(def *Definition, operands []int) string {
 		} else {
 			return fmt.Sprintf("%s %d", def.Name, operands[0])
 		}
+	case 2:
+		return fmt.Sprintf("%s %d %d", def.Name, operands[0], operands[1])
 	}
 
 	return fmt.Sprintf("ERROR: unhandled opCount for %s\n", def.Name)
@@ -90,6 +92,8 @@ const (
 	OpSetLocal
 	OpGetLocal
 	OpGetBuiltin
+	OpClosure
+	OpGetFree
 )
 
 var definitions = map[OpCode]*Definition{
@@ -122,6 +126,11 @@ var definitions = map[OpCode]*Definition{
 	OpSetLocal:      {"OpSetLocal", []int{1}},
 	OpGetLocal:      {"OpGetLocal", []int{1}},
 	OpGetBuiltin:    {"OpGetBuiltin", []int{1}},
+	OpClosure:       {"OpClosure", []int{2, 1}}, // 2 bytes for accessing constant Pool to get
+	// CompiledFunction and 1 byte specifies how many free variables are sitting on the stack
+	// to be bundled together w the CompiledFunction into a Closure object
+	OpGetFree: {"OpGetFree", []int{1}}, // pushes a Free variable from inside the closure
+	// onto the stack
 }
 
 func Lookup(op byte) (*Definition, error) {

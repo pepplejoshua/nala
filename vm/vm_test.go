@@ -461,3 +461,40 @@ func TestBuiltinFunctions(t *testing.T) {
 
 	runVmTests(t, tests)
 }
+
+func TestClosures(t *testing.T) {
+	tests := []vmTest{
+		{
+			input: `
+			let newClos = fn(a) { fn() { a; } };
+			let clos = newClos(99);
+			clos()`,
+			expected: 99,
+		},
+		{
+			input: `
+			let newAdd = fn(a, b) {
+				let c = a + b;
+				fn(d) { c + d };
+			};
+			let add3To = newAdd(1, 2);
+			add3To(8);`,
+			expected: 11,
+		},
+		{
+			input: `
+			let outFib = fn(x) {
+				fn() {
+					if (x < 2) { return x }
+					outFib(x-1)() + outFib(x-2)()
+				}
+			}
+			let fib15 = outFib(15);
+			fib15()
+			`,
+			expected: 610,
+		},
+	}
+
+	runVmTests(t, tests)
+}

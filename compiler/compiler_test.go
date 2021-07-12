@@ -527,7 +527,7 @@ func TestFunctions(t *testing.T) {
 				},
 			},
 			expectedInstructions: []opcode.Instructions{
-				opcode.Make(opcode.OpConstant, 2),
+				opcode.Make(opcode.OpClosure, 2, 0),
 				opcode.Make(opcode.OpPop),
 			},
 		},
@@ -544,7 +544,7 @@ func TestFunctions(t *testing.T) {
 				},
 			},
 			expectedInstructions: []opcode.Instructions{
-				opcode.Make(opcode.OpConstant, 2),
+				opcode.Make(opcode.OpClosure, 2, 0),
 				opcode.Make(opcode.OpPop),
 			},
 		},
@@ -561,7 +561,7 @@ func TestFunctions(t *testing.T) {
 				},
 			},
 			expectedInstructions: []opcode.Instructions{
-				opcode.Make(opcode.OpConstant, 2),
+				opcode.Make(opcode.OpClosure, 2, 0),
 				opcode.Make(opcode.OpPop),
 			},
 		},
@@ -573,7 +573,7 @@ func TestFunctions(t *testing.T) {
 				},
 			},
 			expectedInstructions: []opcode.Instructions{
-				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpClosure, 0, 0),
 				opcode.Make(opcode.OpPop),
 			},
 		},
@@ -643,7 +643,7 @@ func TestFunctionCalls(t *testing.T) {
 				},
 			},
 			expectedInstructions: []opcode.Instructions{
-				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpClosure, 1, 0),
 				opcode.Make(opcode.OpCall, 0),
 				opcode.Make(opcode.OpPop),
 			},
@@ -658,7 +658,7 @@ func TestFunctionCalls(t *testing.T) {
 				},
 			},
 			expectedInstructions: []opcode.Instructions{
-				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpClosure, 1, 0),
 				opcode.Make(opcode.OpSetGlobal, 0),
 				opcode.Make(opcode.OpGetGlobal, 0),
 				opcode.Make(opcode.OpCall, 0),
@@ -675,7 +675,7 @@ func TestFunctionCalls(t *testing.T) {
 				24,
 			},
 			expectedInstructions: []opcode.Instructions{
-				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpClosure, 0, 0),
 				opcode.Make(opcode.OpSetGlobal, 0),
 				opcode.Make(opcode.OpGetGlobal, 0),
 				opcode.Make(opcode.OpConstant, 1),
@@ -702,7 +702,7 @@ func TestFunctionCalls(t *testing.T) {
 				4,
 			},
 			expectedInstructions: []opcode.Instructions{
-				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpClosure, 0, 0),
 				opcode.Make(opcode.OpSetGlobal, 0),
 				opcode.Make(opcode.OpGetGlobal, 0),
 				opcode.Make(opcode.OpConstant, 1),
@@ -718,7 +718,7 @@ func TestFunctionCalls(t *testing.T) {
 	runCompilerTests(t, tests)
 }
 
-func TestGlobalLetStatementScopes(t *testing.T) {
+func TestLetStatementScopes(t *testing.T) {
 	tests := []CompilerTest{
 		{
 			input: `let n = 55; fn() { n }`,
@@ -732,7 +732,7 @@ func TestGlobalLetStatementScopes(t *testing.T) {
 			expectedInstructions: []opcode.Instructions{
 				opcode.Make(opcode.OpConstant, 0),
 				opcode.Make(opcode.OpSetGlobal, 0),
-				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpClosure, 1, 0),
 				opcode.Make(opcode.OpPop),
 			},
 		},
@@ -748,7 +748,7 @@ func TestGlobalLetStatementScopes(t *testing.T) {
 				},
 			},
 			expectedInstructions: []opcode.Instructions{
-				opcode.Make(opcode.OpConstant, 1),
+				opcode.Make(opcode.OpClosure, 1, 0),
 				opcode.Make(opcode.OpPop),
 			},
 		},
@@ -769,7 +769,7 @@ func TestGlobalLetStatementScopes(t *testing.T) {
 				},
 			},
 			expectedInstructions: []opcode.Instructions{
-				opcode.Make(opcode.OpConstant, 2),
+				opcode.Make(opcode.OpClosure, 2, 0),
 				opcode.Make(opcode.OpPop),
 			},
 		},
@@ -808,7 +808,132 @@ func TestBuiltins(t *testing.T) {
 				},
 			},
 			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpClosure, 0, 0),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+	}
+
+	runCompilerTests(t, tests)
+}
+
+func TestClosures(t *testing.T) {
+	tests := []CompilerTest{
+		{
+			input: `
+			fn(a) {
+				fn(b) {
+					a + b
+				}
+			}`,
+			expectedConstants: []interface{}{
+				[]opcode.Instructions{ // for fn(b)
+					opcode.Make(opcode.OpGetFree, 0),
+					opcode.Make(opcode.OpGetLocal, 0),
+					opcode.Make(opcode.OpAdd),
+					opcode.Make(opcode.OpReturnValue),
+				},
+				[]opcode.Instructions{
+					opcode.Make(opcode.OpGetLocal, 0),
+					opcode.Make(opcode.OpClosure, 0, 1),
+					opcode.Make(opcode.OpReturnValue),
+				},
+			},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpClosure, 1, 0), // the OpConstant is implicit
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input: `
+			fn(a) {
+				fn(b) {
+					fn (c) {
+						a + b + c
+					}
+				}
+			};`,
+			expectedConstants: []interface{}{
+				[]opcode.Instructions{
+					opcode.Make(opcode.OpGetFree, 0), // the a from fn(a)
+					opcode.Make(opcode.OpGetFree, 1), // the b from fn(b)
+					opcode.Make(opcode.OpAdd),
+					opcode.Make(opcode.OpGetLocal, 0), // the c in fn(c)
+					opcode.Make(opcode.OpAdd),
+					opcode.Make(opcode.OpReturnValue),
+				},
+				[]opcode.Instructions{
+					opcode.Make(opcode.OpGetFree, 0),    // the a passed as free from fn(a)
+					opcode.Make(opcode.OpGetLocal, 0),   // the b in fn(b)
+					opcode.Make(opcode.OpClosure, 0, 2), // make closure from fn(c), a and b
+					opcode.Make(opcode.OpReturnValue),
+				},
+				[]opcode.Instructions{
+					opcode.Make(opcode.OpGetLocal, 0),
+					opcode.Make(opcode.OpClosure, 1, 1), // make closure from fn(b) and a
+					opcode.Make(opcode.OpReturnValue),
+				},
+			},
+			expectedInstructions: []opcode.Instructions{
+				opcode.Make(opcode.OpClosure, 2, 0),
+				opcode.Make(opcode.OpPop),
+			},
+		},
+		{
+			input: `
+			let glob = 55;
+			
+			fn() {
+				let a = 66;
+				
+				fn() {
+					let b = 77;
+					
+					fn() {
+						let c = 88;
+						
+						glob + a + b + c
+					}
+				}
+			}
+			`,
+			expectedConstants: []interface{}{
+				55,
+				66,
+				77,
+				88,
+				[]opcode.Instructions{
+					opcode.Make(opcode.OpConstant, 3),
+					opcode.Make(opcode.OpSetLocal, 0),
+					opcode.Make(opcode.OpGetGlobal, 0), // glob
+					opcode.Make(opcode.OpGetFree, 0),   // a
+					opcode.Make(opcode.OpAdd),          // glob + a
+					opcode.Make(opcode.OpGetFree, 1),   // b
+					opcode.Make(opcode.OpAdd),          //glob + a + b
+					opcode.Make(opcode.OpGetLocal, 0),  // c
+					opcode.Make(opcode.OpAdd),          // glob + a + b + c
+					opcode.Make(opcode.OpReturnValue),
+				},
+				[]opcode.Instructions{
+					opcode.Make(opcode.OpConstant, 2),
+					opcode.Make(opcode.OpSetLocal, 0),
+					opcode.Make(opcode.OpGetFree, 0),  // a
+					opcode.Make(opcode.OpGetLocal, 0), // b
+					opcode.Make(opcode.OpClosure, 4, 2),
+					opcode.Make(opcode.OpReturnValue),
+				},
+				[]opcode.Instructions{
+					opcode.Make(opcode.OpConstant, 1),
+					opcode.Make(opcode.OpSetLocal, 0), // a = 66
+					opcode.Make(opcode.OpGetLocal, 0), // a
+					opcode.Make(opcode.OpClosure, 5, 1),
+					opcode.Make(opcode.OpReturnValue),
+				},
+			},
+			expectedInstructions: []opcode.Instructions{
 				opcode.Make(opcode.OpConstant, 0),
+				opcode.Make(opcode.OpSetGlobal, 0),
+				opcode.Make(opcode.OpClosure, 6, 0),
 				opcode.Make(opcode.OpPop),
 			},
 		},

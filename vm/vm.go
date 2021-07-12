@@ -218,6 +218,24 @@ func (vm *VM) Run() error {
 			if err != nil {
 				return err
 			}
+		case opcode.OpClosure:
+			constIndex := opcode.ReadUInt16(ins[insPtr+1:])      // read location of compiled func
+			numOfFreeSymbols := opcode.ReadUInt8(ins[insPtr+3:]) // read number of free variables
+			vm.currentFrame().ip += 3
+
+			err := vm.pushClosure(int(constIndex), int(numOfFreeSymbols))
+			if err != nil {
+				return err
+			}
+		case opcode.OpGetFree:
+			freeIndex := opcode.ReadUInt8(ins[insPtr+1:])
+			vm.currentFrame().ip++
+			currentCl := vm.currentFrame().cl
+			err := vm.push(currentCl.FreeVariables[freeIndex])
+			if err != nil {
+				return err
+			}
+
 		}
 
 	}
@@ -225,27 +243,48 @@ func (vm *VM) Run() error {
 	return nil
 }
 
+func (vm *VM) pushClosure(fnIndex int, freeSyms int) error {
+	fnConst := vm.constants[fnIndex]
+	fn, ok := fnConst.(*object.CompiledFunction)
+	if !ok {
+		return fmt.Errorf("not a function: %+v", fnConst)
+	}
+
+	free := make([]object.Object, freeSyms)
+	// read off free symbols from stack
+	for i := 0; i < freeSyms; i++ {
+		free[i] = vm.stack[vm.sp-freeSyms+i]
+	}
+	vm.sp = vm.sp - freeSyms
+
+	closure := &object.Closure{
+		Fn:            fn,
+		FreeVariables: free,
+	}
+	return vm.push(closure)
+}
+
 func (vm *VM) executeCall(numArgs int) error {
 	// reach down and get the function past the arguments
 	callable := vm.stack[vm.sp-numArgs-1]
 
 	switch callable := callable.(type) {
-	case *object.CompiledFunction:
-		return vm.callFunction(callable, numArgs)
+	case *object.Closure:
+		return vm.callClosure(callable, numArgs)
 	case *object.BuiltIn:
 		return vm.callBuiltin(callable, numArgs)
 	default:
-		return fmt.Errorf("calling non-function and non-builtin%s", ".")
+		return fmt.Errorf("calling non-closure and non-builtin%s", ".")
 	}
 }
 
-func (vm *VM) callFunction(fn *object.CompiledFunction, numArgs int) error {
-	if numArgs != fn.NumOfParameters {
-		return fmt.Errorf("wrong number of arguments: want=%d, got=%d", fn.NumOfParameters, numArgs)
+func (vm *VM) callClosure(cl *object.Closure, numArgs int) error {
+	if numArgs != cl.Fn.NumOfParameters {
+		return fmt.Errorf("wrong number of arguments: want=%d, got=%d", cl.Fn.NumOfParameters, numArgs)
 	}
-	frame := NewFrame(fn, vm.sp-numArgs) // move the basePointer even lower to include Arguments
+	frame := NewFrame(cl, vm.sp-numArgs) // move the basePointer even lower to include Arguments
 	vm.pushFrame(frame)
-	vm.sp = frame.basePointer + fn.NumOfLocals // this creates the hole
+	vm.sp = frame.basePointer + cl.Fn.NumOfLocals // this creates the hole
 	// to store and get local variables on the stack
 	return nil
 }
@@ -502,7 +541,10 @@ func (vm *VM) popFrame() *Frame {
 
 func New(bc *compiler.ByteCode) *VM {
 	mainFn := &object.CompiledFunction{Instructions: bc.Instructions}
-	mainFrame := NewFrame(mainFn, 0)
+	mainClosure := &object.Closure{
+		Fn: mainFn,
+	}
+	mainFrame := NewFrame(mainClosure, 0)
 
 	frames := make([]*Frame, MaxFrames)
 	frames[0] = mainFrame

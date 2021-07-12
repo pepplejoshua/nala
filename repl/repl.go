@@ -136,17 +136,18 @@ func Start(in io.Reader, out io.Writer) {
 				constants = comp.ByteCode().Constants
 				globals = machine.Globals()
 
-				// if stackElem.Type() != object.COMPILED_FUNCTION_OBJ &&
-				// 	stackElem.Type() != object.ERROR_OBJ &&
-				// 	stackElem.Type() != object.ARRAY_OBJ &&
-				// 	stackElem.Type() != object.HASHMAP_OBJ &&
-				// 	stackElem.Type() != object.BUILTIN_OBJ {
-				// 	io.WriteString(out, "\n*DISASSEMBLED BYTECODE*\n")
-				// 	io.WriteString(out, "************************\n")
-				// 	ins := comp.ByteCode().Instructions
-				// 	comp.Decompile(ins, constants, globals, "", 0)
-				// 	println()
-				// }
+				if stackElem.Type() != object.ERROR_OBJ &&
+					stackElem.Type() != object.COMPILED_FUNCTION_OBJ &&
+					stackElem.Type() != object.CLOSURE_OBJ &&
+					stackElem.Type() != object.ARRAY_OBJ &&
+					stackElem.Type() != object.HASHMAP_OBJ &&
+					stackElem.Type() != object.BUILTIN_OBJ {
+					io.WriteString(out, "\n*DISASSEMBLED BYTECODE*\n")
+					io.WriteString(out, "************************\n")
+					ins := comp.ByteCode().Instructions
+					comp.Decompile(ins, constants, globals, "", 0)
+					println()
+				}
 				// io.WriteString(out, comp.ByteCode().Instructions.String()+"\n")
 			} else {
 				res = evaluator.Eval(prog, env)

@@ -105,15 +105,22 @@ func (c *Compiler) Compile(node ast.Node) error {
 		if !c.recentInstructionIs(opcode.OpReturnValue) {
 			c.emit(opcode.OpReturn)
 		}
-
+		freeSyms := c.symbolTable.FreeSymbols     // free symbols used in this function
 		numLocals := c.symbolTable.numDefinitions // number of locals defined in this scope
 		instructions := c.leaveScope()
+
+		// write instructions to properly load FreeSymbols to be used by this function later
+		// this is done by emitting the right OpGet*Location* for the free symbol
+		for _, s := range freeSyms {
+			c.loadSymbol(s)
+		}
+
 		compiledFn := &object.CompiledFunction{
 			Instructions:    instructions,
 			NumOfLocals:     numLocals,
 			NumOfParameters: len(node.Parameters),
 		}
-		c.emit(opcode.OpConstant, c.addConstant(compiledFn))
+		c.emit(opcode.OpClosure, c.addConstant(compiledFn), len(freeSyms))
 	case *ast.ReturnStatement:
 		err := c.Compile(node.ReturnValue)
 		if err != nil {
@@ -200,13 +207,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 		if !ok {
 			return fmt.Errorf("undefined variable %s", node.Value)
 		}
-		if symbol.Scope == GlobalScope {
-			c.emit(opcode.OpGetGlobal, symbol.Index)
-		} else if symbol.Scope == LocalScope {
-			c.emit(opcode.OpGetLocal, symbol.Index)
-		} else if symbol.Scope == BuiltInScope {
-			c.emit(opcode.OpGetBuiltin, symbol.Index)
-		}
+		c.loadSymbol(symbol)
 	case *ast.BlockStatement:
 		for _, s := range node.Statements {
 			err := c.Compile(s)
@@ -313,6 +314,19 @@ func (c *Compiler) Compile(node ast.Node) error {
 		}
 	}
 	return nil
+}
+
+func (c *Compiler) loadSymbol(s Symbol) {
+	switch s.Scope {
+	case GlobalScope:
+		c.emit(opcode.OpGetGlobal, s.Index)
+	case LocalScope:
+		c.emit(opcode.OpGetLocal, s.Index)
+	case BuiltInScope:
+		c.emit(opcode.OpGetBuiltin, s.Index)
+	case FreeScope:
+		c.emit(opcode.OpGetFree, s.Index)
+	}
 }
 
 func (c *Compiler) changeOperand(opPos int, operand int) {
@@ -464,6 +478,8 @@ func (c *Compiler) fmtInstruction(def *opcode.Definition, operands []int) string
 		} else {
 			return fmt.Sprintf("%s %d", def.Name, operands[0])
 		}
+	case 2:
+		return fmt.Sprintf("%s %d %d", def.Name, operands[0], operands[1])
 	}
 
 	return fmt.Sprintf("ERROR: unhandled opCount for %s\n", def.Name)
