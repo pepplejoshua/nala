@@ -76,7 +76,6 @@ func (c *Compiler) Compile(node ast.Node) error {
 				return err
 			}
 		}
-
 	case *ast.ExpressionStatement:
 		err := c.Compile(node.Expression)
 		if err != nil {
@@ -113,6 +112,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 		// this is done by emitting the right OpGet*Location* for the free symbol
 		for _, s := range freeSyms {
 			c.loadSymbol(s)
+			// fmt.Println(s.Name, ": ", s.Scope, ":", s.Index)
 		}
 
 		compiledFn := &object.CompiledFunction{
@@ -192,11 +192,15 @@ func (c *Compiler) Compile(node ast.Node) error {
 	case *ast.LetStatement:
 		// by defining a location where the function can be found,
 		// we allow recursion
+		// this however wont bind frees correctly after 2 levels of nesting
+		// as it doesn't know a "Global" location to find a value referencing
+		// itself during definition
 		symbol := c.symbolTable.Define(node.Name.Value)
 		err := c.Compile(node.Value)
 		if err != nil {
 			return err
 		}
+		// fmt.Println(symbol.Name, " ", symbol.Scope, " ", symbol.Index)
 		if symbol.Scope == GlobalScope {
 			c.emit(opcode.OpSetGlobal, symbol.Index)
 		} else if symbol.Scope == LocalScope {
@@ -207,6 +211,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 		if !ok {
 			return fmt.Errorf("undefined variable %s", node.Value)
 		}
+		// fmt.Println(symbol.Name, " ", symbol.Scope, " ", symbol.Index)
 		c.loadSymbol(symbol)
 	case *ast.BlockStatement:
 		for _, s := range node.Statements {
@@ -514,6 +519,10 @@ func (c *Compiler) showOperand(def *opcode.Definition, operands []int, constants
 			case *object.CompiledFunction:
 				if depth < 5 {
 					c.Decompile(op.Instructions, constants, globals, offset, depth+1)
+				}
+			case *object.Closure:
+				if depth < 5 {
+					c.Decompile(op.Fn.Instructions, constants, globals, offset, depth+1)
 				}
 			}
 		} else if def.Name == "OpGetBuiltin" {

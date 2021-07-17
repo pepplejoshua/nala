@@ -231,13 +231,22 @@ func (vm *VM) Run() error {
 			freeIndex := opcode.ReadUInt8(ins[insPtr+1:])
 			vm.currentFrame().ip++
 			currentCl := vm.currentFrame().cl
-			err := vm.push(currentCl.FreeVariables[freeIndex])
+			println("free index: ", freeIndex)
+			free := currentCl.FreeVariables[freeIndex]
+			// fmt.Println(currentCl.FreeVariables)
+			err := vm.push(free)
 			if err != nil {
 				return err
 			}
 
 		}
-
+		def, _ := opcode.Lookup(byte(op))
+		fmt.Println(def.Name)
+		fmt.Println("*************")
+		fmt.Println("st::", vm.stack[0:vm.sp])
+		fmt.Println("cs::", vm.constants)
+		// fmt.Println("gs::", vm.globals)
+		fmt.Print("*************\n\n")
 	}
 
 	return nil
@@ -252,6 +261,8 @@ func (vm *VM) pushClosure(fnIndex int, freeSyms int) error {
 
 	free := make([]object.Object, freeSyms)
 	// read off free symbols from stack
+	// fmt.Println(vm.stack[vm.sp-freeSyms : vm.sp])
+
 	for i := 0; i < freeSyms; i++ {
 		free[i] = vm.stack[vm.sp-freeSyms+i]
 	}
@@ -267,14 +278,18 @@ func (vm *VM) pushClosure(fnIndex int, freeSyms int) error {
 func (vm *VM) executeCall(numArgs int) error {
 	// reach down and get the function past the arguments
 	callable := vm.stack[vm.sp-numArgs-1]
+	println("function found at: ", vm.sp-numArgs-1)
+	// fmt.Println(callable.Inspect(), " ", callable.Type())
 
+	// fmt.Println(vm.currentFrame().Instructions().String())
+	// fmt.Println("here: ", vm.currentFrame().ip-1)
 	switch callable := callable.(type) {
 	case *object.Closure:
 		return vm.callClosure(callable, numArgs)
 	case *object.BuiltIn:
 		return vm.callBuiltin(callable, numArgs)
 	default:
-		return fmt.Errorf("calling non-closure and non-builtin%s", ".")
+		return fmt.Errorf("calling non-closure and non-builtin [%T]", callable)
 	}
 }
 

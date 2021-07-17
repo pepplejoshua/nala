@@ -119,21 +119,44 @@ type CompiledFunction struct {
 	Instructions    opcode.Instructions
 	NumOfLocals     int
 	NumOfParameters int
+	HashableKey     *HashKey
 }
 
 func (cf *CompiledFunction) Type() ObjectType { return COMPILED_FUNCTION_OBJ }
 func (cf *CompiledFunction) Inspect() string {
-	return fmt.Sprintf("CompiledFunction[%p]", cf)
+	return fmt.Sprintf("CompiledFunction[%d]", cf.HashKey().HashValue)
+}
+func (cf *CompiledFunction) HashKey() HashKey {
+	if cf.HashableKey == nil {
+		h := fnv.New64a()
+		h.Write([]byte(cf.Instructions))
+		cf.HashableKey = &HashKey{
+			Type:      cf.Type(),
+			HashValue: h.Sum64(),
+		}
+	}
+	return *cf.HashableKey
 }
 
 type Closure struct {
 	Fn            *CompiledFunction
 	FreeVariables []Object
+	HashableKey   *HashKey
 }
 
 func (c *Closure) Type() ObjectType { return CLOSURE_OBJ }
 func (c *Closure) Inspect() string {
-	return fmt.Sprintf("Closure[%p]", c)
+	return fmt.Sprintf("Closure[%d]", c.HashKey().HashValue)
+}
+func (c *Closure) HashKey() HashKey {
+	if c.HashableKey == nil {
+		fnHash := c.Fn.HashKey()
+		c.HashableKey = &HashKey{
+			Type:      c.Type(),
+			HashValue: fnHash.HashValue,
+		}
+	}
+	return *c.HashableKey
 }
 
 type String struct {

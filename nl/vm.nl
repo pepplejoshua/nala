@@ -11,11 +11,8 @@ let prog = [
 putl("..program statements..",prog)
 putl()
 
-let virtualMachine = fn(prog) {
-    let pc = 0
-    let stack = []
-    let sp = 0
-    inner(pc, stack, sp)
+let showStack = fn(msg, st) {
+    puts(msg, st)
 }
 
 let inner = fn(pc, st, sp) {
@@ -100,8 +97,12 @@ let inner = fn(pc, st, sp) {
     puts("result=> ", st[sp-1])
 }
 
-let showStack = fn(msg, st) {
-    puts(msg, st)
+let virtualMachine = fn(prog) {
+    let pc = 0
+    let stack = []
+    let sp = 0
+    inner(pc, stack, sp)
 }
+
 
 virtualMachine(prog)

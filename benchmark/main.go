@@ -25,6 +25,12 @@ let fibo = fn(x) {
 fibo(35);
 `
 
+// var input = `
+// fn(a, b, c) {
+// 	return a * b * c
+// }(1, 2, 3)
+// `
+
 func main() {
 	flag.Parse()
 
@@ -39,7 +45,7 @@ func main() {
 		comp := compiler.New()
 		err := comp.Compile(prog)
 		if err != nil {
-			fmt.Println("compiler error: %s\n", err)
+			fmt.Printf("compiler error: %s\n", err)
 			return
 		}
 

@@ -15,15 +15,19 @@ let reduce = fn(arr, init, f) {
         if (len(arr) == 0) {
             res
         } else {
-            iter(rest(arr), f(res, first(arr)))
+            reduce(rest(arr), f(res, first(arr)), f)
         }
     }
     iter(arr, init)
 };
 
-let sum = fn(arr) {
-    reduce(arr, 0, fn(in, el) { in + el })
-};
+let incr = fn(x, in) { return x + in  }
+
+let isInt = fn(x) { type(x) == "INTEGER" }
+
+let isIntArr = fn(arr) { map(arr, isInt) }
+
+let sum = fn(arr) { reduce(arr, 0, incr) };
 
 let product = fn(arr) {
     reduce(arr, 1, fn(in, el) { in * el })
@@ -31,6 +35,14 @@ let product = fn(arr) {
 
 let info = {"name": "Nala", "version": "0.0.9", "author": "Iwarilama"};
 
-let incr = fn(x, in) { return x + in }
-
 let fibo = fn(x) { if (x < 2) { return x }; fibo(x - 1) + fibo(x - 2) };
+
+let nums = [1, 2, 3];
+
+let na = fn(a) {
+    fn(b) {
+        fn(c) {
+            a + b + c
+        }
+    }
+}

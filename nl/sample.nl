@@ -53,7 +53,7 @@ let arr = [1, 2, 3, 4, type, sum, map, true, false, [1, 2, 3]]
 
 genArrFromTypes()(arr)
 
-puts(sd(type))
+puts(desc(type))
 
 let t = fn(x) {
     let unt = 15
