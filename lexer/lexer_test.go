@@ -175,3 +175,221 @@ func TestNextToken(t *testing.T) {
 		}
 	}
 }
+
+func TestEllispNextToken(t *testing.T) {
+	input := `
+	(let five 5)
+	(let ten 10)
+
+	(let (add x y) (+ x y))
+	(fn (x y) (+ x y))
+
+	(== 10 10)
+	(!= 10 10)
+	(< 5 (> 10 5))
+	(!true)
+	(- 5)
+
+	-5
+	"joshua pepple"
+	true
+	false
+	'()
+	[1, 2, (< 3 2), 4]
+	[1 2 3 4]
+	{"1": 1, "2": 2}
+	{"1": 1 true: 2}
+	(cons 1 '())
+	(list 1 2 3)
+	'(1 2 3 4)
+
+	(let res (add five ten))
+
+	(if (< 5 10)
+		true
+		false)
+	`
+
+	tests := []ExpectedToken{
+		{token.LPAREN, "("},
+		{token.LET, "let"},
+		{token.IDENT, "five"},
+		{token.INT, "5"},
+		{token.RPAREN, ")"},
+
+		{token.LPAREN, "("},
+		{token.LET, "let"},
+		{token.IDENT, "ten"},
+		{token.INT, "10"},
+		{token.RPAREN, ")"},
+
+		{token.LPAREN, "("},
+		{token.LET, "let"},
+		{token.LPAREN, "("},
+		{token.IDENT, "add"},
+		{token.IDENT, "x"},
+		{token.IDENT, "y"},
+		{token.RPAREN, ")"},
+		{token.LPAREN, "("},
+		{token.PLUS, "+"},
+		{token.IDENT, "x"},
+		{token.IDENT, "y"},
+		{token.RPAREN, ")"},
+		{token.RPAREN, ")"},
+
+		{token.LPAREN, "("},
+		{token.FUNCTION, "fn"},
+		{token.LPAREN, "("},
+		{token.IDENT, "x"},
+		{token.IDENT, "y"},
+		{token.RPAREN, ")"},
+		{token.LPAREN, "("},
+		{token.PLUS, "+"},
+		{token.IDENT, "x"},
+		{token.IDENT, "y"},
+		{token.RPAREN, ")"},
+		{token.RPAREN, ")"},
+
+		{token.LPAREN, "("},
+		{token.EQ, "=="},
+		{token.INT, "10"},
+		{token.INT, "10"},
+		{token.RPAREN, ")"},
+
+		{token.LPAREN, "("},
+		{token.NOT_EQ, "!="},
+		{token.INT, "10"},
+		{token.INT, "10"},
+		{token.RPAREN, ")"},
+
+		{token.LPAREN, "("},
+		{token.LT, "<"},
+		{token.INT, "5"},
+		{token.LPAREN, "("},
+		{token.GT, ">"},
+		{token.INT, "10"},
+		{token.INT, "5"},
+		{token.RPAREN, ")"},
+		{token.RPAREN, ")"},
+
+		{token.LPAREN, "("},
+		{token.BANG, "!"},
+		{token.TRUE, "true"},
+		{token.RPAREN, ")"},
+
+		{token.LPAREN, "("},
+		{token.MINUS, "-"},
+		{token.INT, "5"},
+		{token.RPAREN, ")"},
+
+		{token.MINUS, "-"},
+		{token.INT, "5"},
+
+		{token.STRING, "joshua pepple"},
+		{token.TRUE, "true"},
+		{token.FALSE, "false"},
+
+		{token.APOSTROPHE, "'"},
+		{token.LPAREN, "("},
+		{token.RPAREN, ")"},
+
+		{token.LBRACKET, "["},
+		{token.INT, "1"},
+		{token.COMMA, ","},
+		{token.INT, "2"},
+		{token.COMMA, ","},
+		{token.LPAREN, "("},
+		{token.LT, "<"},
+		{token.INT, "3"},
+		{token.INT, "2"},
+		{token.RPAREN, ")"},
+		{token.COMMA, ","},
+		{token.INT, "4"},
+		{token.RBRACKET, "]"},
+
+		{token.LBRACKET, "["},
+		{token.INT, "1"},
+		{token.INT, "2"},
+		{token.INT, "3"},
+		{token.INT, "4"},
+		{token.RBRACKET, "]"},
+
+		{token.LBRACE, "{"},
+		{token.STRING, "1"},
+		{token.COLON, ":"},
+		{token.INT, "1"},
+		{token.COMMA, ","},
+		{token.STRING, "2"},
+		{token.COLON, ":"},
+		{token.INT, "2"},
+		{token.RBRACE, "}"},
+
+		{token.LBRACE, "{"},
+		{token.STRING, "1"},
+		{token.COLON, ":"},
+		{token.INT, "1"},
+		{token.TRUE, "true"},
+		{token.COLON, ":"},
+		{token.INT, "2"},
+		{token.RBRACE, "}"},
+
+		{token.LPAREN, "("},
+		{token.CONS, "cons"},
+		{token.INT, "1"},
+		{token.APOSTROPHE, "'"},
+		{token.LPAREN, "("},
+		{token.RPAREN, ")"},
+		{token.RPAREN, ")"},
+
+		{token.LPAREN, "("},
+		{token.LIST, "list"},
+		{token.INT, "1"},
+		{token.INT, "2"},
+		{token.INT, "3"},
+		{token.RPAREN, ")"},
+
+		{token.APOSTROPHE, "'"},
+		{token.LPAREN, "("},
+		{token.INT, "1"},
+		{token.INT, "2"},
+		{token.INT, "3"},
+		{token.INT, "4"},
+		{token.RPAREN, ")"},
+
+		{token.LPAREN, "("},
+		{token.LET, "let"},
+		{token.IDENT, "res"},
+		{token.LPAREN, "("},
+		{token.IDENT, "add"},
+		{token.IDENT, "five"},
+		{token.IDENT, "ten"},
+		{token.RPAREN, ")"},
+		{token.RPAREN, ")"},
+
+		{token.LPAREN, "("},
+		{token.IF, "if"},
+		{token.LPAREN, "("},
+		{token.LT, "<"},
+		{token.INT, "5"},
+		{token.INT, "10"},
+		{token.RPAREN, ")"},
+		{token.TRUE, "true"},
+		{token.FALSE, "false"},
+		{token.RPAREN, ")"},
+	}
+
+	l := New(input)
+
+	for indx, expTok := range tests {
+		tok := l.NextToken()
+
+		if tok.Type != expTok.expectedType {
+			t.Fatalf("tests[%d] - tokentype wrong. expected=%q, got=%q", indx, expTok.expectedType, tok.Type)
+		}
+
+		if tok.Literal != expTok.expectedLiteral {
+			t.Fatalf("tests[%d] - literal wrong. expected=%q, got=%q", indx, expTok.expectedLiteral, tok.Literal)
+		}
+	}
+
+}

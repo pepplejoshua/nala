@@ -1,0 +1,67 @@
+bindings:
+(let five 5)
+(let ten 10)
+
+named function def choices bindings:
+(let (add x y) (+ x y)) => can wrap into existing stuff
+
+nameless function def choices:
+(fn (x y) (+ x y)) => can wrap into existing stuff
+
+operators:
+(== 10 10)
+(!= 10 10)
+(< 5 (> 10 5))
+(!true)
+(- 5)
+
+literals:
+-5 => this should not be a function call. 
+        We can do this in the parser (under parseInfixExpression)?
+5
+"joshua pepple"
+true
+false
+'() => need to impl NIL in lexer
+[1, 2, 3, 4]
+{"1": 1, "2": 2}
+(list 1 2 3) => need to impl cons and list
+(fn (x) x)
+(cons 1 '()) => need to impl cons and list
+'(1 2 3 4)
+
+func calls:
+(let res (add five ten))
+
+conds:
+(if (< 5 10): true (+ 1 2), false)
+
+considerations:
+
+atoms:
+'someAtom 
+'someAtom != "someAtom" == true
+
+=> need atom table (dictionary?) and parser handling
+
+arrays and hashmaps:
+[1, 2, 3, 4] == [1 2 3 4]
+{
+    1: 1
+    2: 2
+} ==
+{
+    1: 1,
+    2: 2,
+}
+
+=> conditionally advance to next token in parser if cur token after
+current value is a comma
+this allows space to be a separator instead of space+comma
+
+conds:
+(cond
+    [(checkA) (doStuff)]
+    [(checkB) (doStuff)]
+    [(checkC) (doStuff)]
+    [true (doStuff)])

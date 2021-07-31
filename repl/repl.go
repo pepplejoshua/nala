@@ -10,6 +10,7 @@ import (
 	"nala/compiler"
 	"nala/evaluator"
 	"nala/lexer"
+	lispparser "nala/lisp_parser"
 	"nala/object"
 	"nala/parser"
 	"nala/vm"
@@ -23,6 +24,7 @@ const FUNCSPATH = "functions"
 
 var engine = flag.Bool("vm", true, "Use Compiler and Virtual Machine")
 var file = flag.String("f", "", "Run Nala source file")
+var lang = flag.Bool("nl", true, "Interpret Nala language. Set to false for Ellisp")
 
 // const FUNCSPATH = "./nl/test.nl"
 
@@ -51,11 +53,11 @@ func Start(in io.Reader, out io.Writer) {
 			// go on to execute it
 			// load in nalaFuncsProg first
 			if *engine {
-				globals, constants = compileAndRunNalaProg(nalaFuncsProg, symbolTable, constants, globals, false)
-				compileAndRunNalaProg(userProg, symbolTable, constants, globals, true)
+				globals, constants = compileAndRunProg(nalaFuncsProg, symbolTable, constants, globals, false)
+				compileAndRunProg(userProg, symbolTable, constants, globals, true)
 			} else {
-				evaluateNalaProg(nalaFuncsProg, env, false)
-				evaluateNalaProg(userProg, env, true)
+				evaluateProg(nalaFuncsProg, env, false)
+				evaluateProg(userProg, env, true)
 			}
 		}
 		return // end execution
@@ -63,11 +65,17 @@ func Start(in io.Reader, out io.Writer) {
 
 	// run the predefined functions through first
 	if *engine {
-		fmt.Print("using VM...\n\n")
-		globals, constants = compileAndRunNalaProg(nalaFuncsProg, symbolTable, constants, globals, false)
+		fmt.Print("using VM...\n")
+		globals, constants = compileAndRunProg(nalaFuncsProg, symbolTable, constants, globals, false)
 	} else {
-		fmt.Print("using TreeWalker...\n\n")
-		evaluateNalaProg(nalaFuncsProg, env, false)
+		fmt.Print("using TreeWalker...\n")
+		evaluateProg(nalaFuncsProg, env, false)
+	}
+
+	if *lang {
+		fmt.Print("Parsing Nala source code...\n\n")
+	} else {
+		fmt.Print("Parsing Ellisp source code...\n\n")
 	}
 
 	for {
@@ -103,15 +111,15 @@ func Start(in io.Reader, out io.Writer) {
 			continue
 		}
 
-		prog, ok := parseSource(line)
+		prog, ok := parseSource(line, *lang)
 		if !ok {
 			continue
 		}
 
 		if *engine {
-			compileAndRunNalaProg(prog, symbolTable, constants, globals, true)
+			compileAndRunProg(prog, symbolTable, constants, globals, true)
 		} else {
-			evaluateNalaProg(prog, env, true)
+			evaluateProg(prog, env, true)
 		}
 	}
 }
@@ -125,7 +133,7 @@ const CAT_FACE = ` A_A
 \_||_/_/
 `
 
-func compileAndRunNalaProg(prog *ast.Program, st *compiler.SymbolTable, cons,
+func compileAndRunProg(prog *ast.Program, st *compiler.SymbolTable, cons,
 	globals []object.Object, show bool) ([]object.Object, []object.Object) {
 	comp := compiler.NewWithState(st, cons)
 	err := comp.Compile(prog)
@@ -178,7 +186,7 @@ func runVM(bc *compiler.ByteCode, globals []object.Object) (object.Object, []obj
 	return top, machine.Globals(), err
 }
 
-func evaluateNalaProg(prog *ast.Program, env *object.Environment, show bool) {
+func evaluateProg(prog *ast.Program, env *object.Environment, show bool) {
 	res := evaluator.Eval(prog, env)
 
 	if show {
@@ -203,19 +211,43 @@ func parseNalaFunctions() *ast.Program {
 func readAndParseSourceFile(path string) *ast.Program {
 	src := getFileContents(path)
 
-	prog, ok := parseSource(src)
+	prog, ok := parseSource(src, true)
 	if ok {
 		return prog
 	}
 	return nil
 }
 
-func parseSource(src string) (*ast.Program, bool) {
+func parseSource(src string, nalaSrc bool) (*ast.Program, bool) {
 	l := lexer.New(src)
-	p := parser.New(l)
+
+	var prog *ast.Program
+	if nalaSrc {
+		p := parser.New(l)
+		prog = p.ParseProgram()
+		if hasErrors(p) {
+			fmt.Println("couldn't parse source")
+			printParseErrors(os.Stdout, p.Errors())
+			return nil, false
+		}
+	} else {
+		p := lispparser.New(l)
+		prog = p.ParseProgram()
+		if hasErrorsL(p) {
+			fmt.Println("couldn't parse source")
+			printParseErrors(os.Stdout, p.Errors())
+			return nil, false
+		}
+	}
+	return prog, true
+}
+
+func parseEllispSource(src string) (*ast.Program, bool) {
+	l := lexer.New(src)
+	p := lispparser.New(l)
 
 	prog := p.ParseProgram()
-	if hasErrors(p) {
+	if hasErrorsL(p) {
 		fmt.Println("couldn't parse source")
 		printParseErrors(os.Stdout, p.Errors())
 		return nil, false
@@ -232,6 +264,10 @@ func getFileContents(location string) string {
 }
 
 func hasErrors(p *parser.Parser) bool {
+	return len(p.Errors()) != 0
+}
+
+func hasErrorsL(p *lispparser.Parser) bool {
 	return len(p.Errors()) != 0
 }
 

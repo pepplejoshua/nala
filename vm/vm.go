@@ -240,13 +240,13 @@ func (vm *VM) Run() error {
 			}
 
 		}
-		def, _ := opcode.Lookup(byte(op))
-		fmt.Println(def.Name)
-		fmt.Println("*************")
-		fmt.Println("st::", vm.stack[0:vm.sp])
-		fmt.Println("cs::", vm.constants)
-		// fmt.Println("gs::", vm.globals)
-		fmt.Print("*************\n\n")
+		// def, _ := opcode.Lookup(byte(op))
+		// fmt.Println(def.Name)
+		// fmt.Println("*************")
+		// fmt.Println("st::", vm.stack[0:vm.sp])
+		// fmt.Println("cs::", vm.constants)
+		// // fmt.Println("gs::", vm.globals)
+		// fmt.Print("*************\n\n")
 	}
 
 	return nil
@@ -278,7 +278,6 @@ func (vm *VM) pushClosure(fnIndex int, freeSyms int) error {
 func (vm *VM) executeCall(numArgs int) error {
 	// reach down and get the function past the arguments
 	callable := vm.stack[vm.sp-numArgs-1]
-	println("function found at: ", vm.sp-numArgs-1)
 	// fmt.Println(callable.Inspect(), " ", callable.Type())
 
 	// fmt.Println(vm.currentFrame().Instructions().String())

@@ -19,13 +19,14 @@ const (
 	STRING = "STRING"
 
 	// operators
-	ASSIGN   = "="
-	PLUS     = "+"
-	MINUS    = "-"
-	BANG     = "!"
-	ASTERISK = "*"
-	SLASH    = "/"
-	MODULO   = "%"
+	ASSIGN     = "="
+	PLUS       = "+"
+	MINUS      = "-"
+	BANG       = "!"
+	ASTERISK   = "*"
+	SLASH      = "/"
+	MODULO     = "%"
+	APOSTROPHE = "'"
 
 	LT = "<"
 	GT = ">"
@@ -54,6 +55,8 @@ const (
 	ELSE     = "ELSE"
 	RETURN   = "RETURN"
 	MACRO    = "MACRO"
+	CONS     = "CONS"
+	LIST     = "LIST"
 )
 
 var keywords = map[string]TokenType{
@@ -65,6 +68,8 @@ var keywords = map[string]TokenType{
 	"else":   ELSE,
 	"return": RETURN,
 	"macro":  MACRO,
+	"cons":   CONS,
+	"list":   LIST,
 }
 
 func LookupIdent(ident string) TokenType {
