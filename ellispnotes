@@ -65,3 +65,6 @@ conds:
     :(checkB) (doStuff)
     :(checkC) (doStuff),
     true (doStuff))
+
+array indexing:
+|array index|

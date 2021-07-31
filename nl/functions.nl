@@ -1,5 +1,5 @@
 let map = fn(arr, f) {
-    let iter = fn(arr, accum) {
+    let iter = fn(arr, accum, iter) {
         if (len(arr) == 0) {
             accum
         } else {
@@ -7,7 +7,7 @@ let map = fn(arr, f) {
         }
 
     };
-    iter(arr, []);
+    iter(arr, [], iter);
 };
 
 let reduce = fn(arr, init, f) {

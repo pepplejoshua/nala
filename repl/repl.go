@@ -53,8 +53,8 @@ func Start(in io.Reader, out io.Writer) {
 			// go on to execute it
 			// load in nalaFuncsProg first
 			if *engine {
-				globals, constants = compileAndRunProg(nalaFuncsProg, symbolTable, constants, globals, false)
-				compileAndRunProg(userProg, symbolTable, constants, globals, true)
+				globals, constants = compileAndRunProg(nalaFuncsProg, symbolTable, constants, globals, false, false)
+				compileAndRunProg(userProg, symbolTable, constants, globals, false, true)
 			} else {
 				evaluateProg(nalaFuncsProg, env, false)
 				evaluateProg(userProg, env, true)
@@ -66,7 +66,7 @@ func Start(in io.Reader, out io.Writer) {
 	// run the predefined functions through first
 	if *engine {
 		fmt.Print("using VM...\n")
-		globals, constants = compileAndRunProg(nalaFuncsProg, symbolTable, constants, globals, false)
+		globals, constants = compileAndRunProg(nalaFuncsProg, symbolTable, constants, globals, false, false)
 	} else {
 		fmt.Print("using TreeWalker...\n")
 		evaluateProg(nalaFuncsProg, env, false)
@@ -78,6 +78,7 @@ func Start(in io.Reader, out io.Writer) {
 		fmt.Print("Parsing Ellisp source code...\n\n")
 	}
 
+	showBC := false
 	for {
 		fmt.Print(PROMPT)
 		scanner := bufio.NewScanner(in)
@@ -110,6 +111,15 @@ func Start(in io.Reader, out io.Writer) {
 			fmt.Println()
 			continue
 		}
+		if line == ".bc" {
+			showBC = !showBC
+			msg := "showing bytecode..."
+			if !showBC {
+				msg = "not " + msg
+			}
+			fmt.Println(msg)
+			continue
+		}
 
 		prog, ok := parseSource(line, *lang)
 		if !ok {
@@ -117,7 +127,7 @@ func Start(in io.Reader, out io.Writer) {
 		}
 
 		if *engine {
-			compileAndRunProg(prog, symbolTable, constants, globals, true)
+			compileAndRunProg(prog, symbolTable, constants, globals, showBC, true)
 		} else {
 			evaluateProg(prog, env, true)
 		}
@@ -134,11 +144,11 @@ const CAT_FACE = ` A_A
 `
 
 func compileAndRunProg(prog *ast.Program, st *compiler.SymbolTable, cons,
-	globals []object.Object, show bool) ([]object.Object, []object.Object) {
+	globals []object.Object, show bool, showRes bool) ([]object.Object, []object.Object) {
 	comp := compiler.NewWithState(st, cons)
 	err := comp.Compile(prog)
 	if err != nil {
-		if show {
+		if showRes {
 			fmt.Println(fmt.Errorf("compiler error: %s", err))
 		}
 		return globals, cons
@@ -149,14 +159,14 @@ func compileAndRunProg(prog *ast.Program, st *compiler.SymbolTable, cons,
 	duration := time.Since(now)
 
 	if err != nil {
-		if show {
+		if showRes {
 			fmt.Println(fmt.Errorf("vm error: %s", err))
 		}
 		fmt.Println(comp.ByteCode().Instructions.String())
 		return globals, cons
 	}
 
-	if show {
+	if showRes {
 		fmt.Println(top.Inspect())
 	}
 
@@ -238,19 +248,6 @@ func parseSource(src string, nalaSrc bool) (*ast.Program, bool) {
 			printParseErrors(os.Stdout, p.Errors())
 			return nil, false
 		}
-	}
-	return prog, true
-}
-
-func parseEllispSource(src string) (*ast.Program, bool) {
-	l := lexer.New(src)
-	p := lispparser.New(l)
-
-	prog := p.ParseProgram()
-	if hasErrorsL(p) {
-		fmt.Println("couldn't parse source")
-		printParseErrors(os.Stdout, p.Errors())
-		return nil, false
 	}
 	return prog, true
 }

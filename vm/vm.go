@@ -231,7 +231,6 @@ func (vm *VM) Run() error {
 			freeIndex := opcode.ReadUInt8(ins[insPtr+1:])
 			vm.currentFrame().ip++
 			currentCl := vm.currentFrame().cl
-			println("free index: ", freeIndex)
 			free := currentCl.FreeVariables[freeIndex]
 			// fmt.Println(currentCl.FreeVariables)
 			err := vm.push(free)

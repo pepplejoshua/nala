@@ -54,6 +54,8 @@ func (l *Lexer) NextToken() token.Token {
 		} else {
 			tok = newToken(token.ASSIGN, l.ch)
 		}
+	case '|':
+		tok = newToken(token.PIPE, l.ch)
 	case '\'':
 		tok = newToken(token.APOSTROPHE, l.ch)
 	case ';':
