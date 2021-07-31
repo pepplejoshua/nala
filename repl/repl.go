@@ -47,7 +47,7 @@ func Start(in io.Reader, out io.Writer) {
 	var userProg *ast.Program
 	if *file != "" {
 		// try to parse user file
-		userProg = readAndParseSourceFile(*file)
+		userProg = readAndParseSourceFile(*file, *lang)
 
 		if userProg != nil {
 			// go on to execute it
@@ -209,7 +209,7 @@ func evaluateProg(prog *ast.Program, env *object.Environment, show bool) {
 }
 
 func parseNalaFunctions() *ast.Program {
-	prog := readAndParseSourceFile(FUNCSPATH)
+	prog := readAndParseSourceFile(FUNCSPATH, true)
 	if prog != nil {
 		fmt.Println("read nala functions")
 		return prog
@@ -218,10 +218,15 @@ func parseNalaFunctions() *ast.Program {
 	return nil
 }
 
-func readAndParseSourceFile(path string) *ast.Program {
-	src := getFileContents(path)
+func readAndParseSourceFile(path string, nalaSrc bool) *ast.Program {
+	var src string
+	if nalaSrc {
+		src = getFileContents(path + ".nl")
+	} else {
+		src = getFileContents(path + ".el")
+	}
 
-	prog, ok := parseSource(src, true)
+	prog, ok := parseSource(src, nalaSrc)
 	if ok {
 		return prog
 	}
@@ -253,7 +258,10 @@ func parseSource(src string, nalaSrc bool) (*ast.Program, bool) {
 }
 
 func getFileContents(location string) string {
-	data, err := ioutil.ReadFile("./nl/" + location + ".nl")
+	var data []byte
+	var err error
+	data, err = ioutil.ReadFile("./code/" + location)
+
 	if err != nil {
 		panic(err)
 	}
