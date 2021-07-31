@@ -205,7 +205,6 @@ func (p *Parser) parseBlockStatement(endToken token.TokenType, fallbackEnd token
 	for !p.curTokenIs(endToken) && !p.curTokenIs(fallbackEnd) {
 		stmt := p.parseStatement()
 		if stmt != nil {
-			fmt.Println(stmt.String())
 			block.Statements = append(block.Statements, stmt)
 		}
 		p.nextToken()
@@ -321,6 +320,50 @@ func (p *Parser) parseLiteral() ast.Expression {
 		p.nonLiteralError()
 		return nil
 	}
+}
+
+func (p *Parser) parseFunctionLiteral() ast.Expression {
+	fn := &ast.FunctionLiteral{Token: p.curToken}
+
+	if !p.expectPeek(token.LPAREN) {
+		return nil
+	}
+
+	fn.Parameters = p.parseFunctionParameters()
+	if !p.expectPeek(token.COLON) {
+		return nil
+	}
+
+	fn.Body = p.parseBlockStatement(token.RPAREN, token.RPAREN)
+	return fn
+}
+
+func (p *Parser) parseFunctionParameters() []*ast.Identifier {
+	ids := []*ast.Identifier{}
+
+	if p.peekTokenIs(token.RPAREN) {
+		p.nextToken()
+		return ids
+	}
+
+	p.nextToken()
+
+	id := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	ids = append(ids, id)
+
+	fmt.Println(id.String())
+	for p.peekTokenIs(token.COMMA) {
+		p.nextToken()
+		p.nextToken()
+		id := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		ids = append(ids, id)
+	}
+
+	if !p.expectPeek(token.RPAREN) {
+		return nil
+	}
+
+	return ids
 }
 
 func (p *Parser) curTokenIs(expectedType token.TokenType) bool {

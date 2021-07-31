@@ -38,6 +38,11 @@ type IfExpressionTest struct {
 	Alternative string
 }
 
+type FuncParameterTest struct {
+	input          string
+	expectedParams []string
+}
+
 type GenericTest struct {
 	input    string
 	expected interface{}
@@ -422,7 +427,7 @@ func TestIfElseExpression(t *testing.T) {
 }
 
 func TestFunctionLiteralParsing(t *testing.T) {
-	input := `fn(x, y) { x + y; }`
+	input := `(fn (x, y): (+ x y))`
 
 	l := lexer.New(input)
 	p := New(l)
@@ -460,6 +465,34 @@ func TestFunctionLiteralParsing(t *testing.T) {
 	}
 
 	testInfixExpression(t, bodyStmt.Expression, "x", "+", "y")
+}
+
+func TestFunctionParameterParsing(t *testing.T) {
+	tests := []FuncParameterTest{
+		{input: "(fn ():)", expectedParams: []string{}},
+		{input: "(fn (x):)", expectedParams: []string{"x"}},
+		{input: "(fn (x, y, z):)", expectedParams: []string{"x", "y", "z"}},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.input)
+		p := New(l)
+		program := p.ParseProgram()
+		checkParseErrors(t, p)
+
+		stmt := program.Statements[0].(*ast.ExpressionStatement)
+		fn := stmt.Expression.(*ast.FunctionLiteral)
+
+		if len(fn.Parameters) != len(tt.expectedParams) {
+			t.Errorf("length of parameters is wrong. want=%d. got=%d\n",
+				len(tt.expectedParams), len(fn.Parameters))
+		}
+
+		for i, ident := range tt.expectedParams {
+			testLiteralExpression(t, fn.Parameters[i], ident)
+		}
+	}
+
 }
 
 func testPrefixExpression(t *testing.T, exp ast.Expression, operator string, value interface{}) bool {

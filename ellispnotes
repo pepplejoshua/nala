@@ -26,7 +26,7 @@ false
 [1, 2, 3, 4]
 {"1": 1, "2": 2}
 (list 1 2 3) => need to impl cons and list
-(fn (x) x)
+(fn (x): x)
 (cons 1 '()) => need to impl cons and list
 '(1 2 3 4)
 
@@ -61,7 +61,7 @@ this allows space to be a separator instead of space+comma
 
 conds:
 (cond
-    [(checkA) (doStuff)]
-    [(checkB) (doStuff)]
-    [(checkC) (doStuff)]
-    [true (doStuff)])
+    :(checkA) (doStuff)
+    :(checkB) (doStuff)
+    :(checkC) (doStuff),
+    true (doStuff))
