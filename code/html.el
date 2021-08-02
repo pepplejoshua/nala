@@ -1,14 +1,5 @@
-(let p (fn (str):
-    (+ (+ "<p>" str) "</p>")
-))
+(putl ((fn (x): (* 2 x)) 3))
 
-(let h1 (fn (str):
-    (+ (+ "<h1>" str) "</h1>")
-))
+(let x [1, 2, sum])
 
-(let (h1 str):
-    (+ (+ "<h1>" str) "</h1>")
-)
-
-(putl (p "joshua pepple"))
-(putl (h1 "A heading"))
+(|x 2| [1, 2, 3])

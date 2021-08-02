@@ -659,7 +659,6 @@ func TestParsingHashLiteralsWithExpressions(t *testing.T) {
 
 func TestCallExpressionParsing(t *testing.T) {
 	input := "(add 1, (* 2 3), (+ 4 5))"
-
 	l := lexer.New(input)
 	p := New(l)
 	program := p.ParseProgram()

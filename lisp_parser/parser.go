@@ -115,12 +115,15 @@ func (p *Parser) parseStatement() ast.Statement {
 }
 
 func (p *Parser) parseParenthesesExpression() ast.Expression {
-	if p.peekTokenIs(token.IDENT) {
-		p.nextToken()
-		return p.parseCallExpression()
-	}
 	p.nextToken()
-	return p.parseExpression()
+	callable := p.parseExpression()
+
+	switch ctype := callable.(type) {
+	case *ast.Identifier, *ast.FunctionLiteral, *ast.IndexExpression:
+		return p.parseCallExpression(ctype)
+	default:
+		return ctype
+	}
 }
 
 func (p *Parser) parseParenthesesStatement() ast.Statement {
@@ -140,10 +143,10 @@ func (p *Parser) parseParenthesesStatement() ast.Statement {
 	}
 }
 
-func (p *Parser) parseCallExpression() *ast.CallExpression {
+func (p *Parser) parseCallExpression(function ast.Expression) *ast.CallExpression {
 	exp := &ast.CallExpression{
 		Token:    p.curToken,
-		Function: p.parseExpression(),
+		Function: function,
 	}
 
 	exp.Arguments = p.parseExpressionList(token.RPAREN)
