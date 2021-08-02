@@ -115,15 +115,33 @@ func (p *Parser) parseStatement() ast.Statement {
 }
 
 func (p *Parser) parseParenthesesExpression() ast.Expression {
-	p.nextToken()
-	callable := p.parseExpression()
-
-	switch ctype := callable.(type) {
-	case *ast.Identifier, *ast.FunctionLiteral, *ast.IndexExpression:
-		return p.parseCallExpression(ctype)
-	default:
-		return ctype
+	if p.peekTokenIs(token.IDENT) {
+		p.nextToken()
+		return p.parseCallExpression(p.parseExpression())
+	} else if p.peekTokenIs(token.LPAREN) {
+		p.nextToken()
+		expr := p.parseParenthesesExpression()
+		return p.parseCallExpression(expr)
+		// switch expr.(type) {
+		// case *ast.FunctionLiteral:
+		// 	return p.parseCallExpression(expr)
+		// }
+	} else if p.peekTokenIs(token.PIPE) {
+		p.nextToken()
+		expr := p.parseIndexExpression()
+		return p.parseCallExpression(expr)
 	}
+	p.nextToken()
+	return p.parseExpression()
+	// p.nextToken()
+	// callable := p.parseExpression()
+
+	// switch ctype := callable.(type) {
+	// case *ast.Identifier, *ast.IndexExpression:
+	// 	return p.parseCallExpression(ctype)
+	// default:
+	// 	return ctype
+	// }
 }
 
 func (p *Parser) parseParenthesesStatement() ast.Statement {
@@ -133,6 +151,13 @@ func (p *Parser) parseParenthesesStatement() ast.Statement {
 	} else if p.peekTokenIs(token.RETURN) {
 		p.nextToken()
 		return p.parseReturnStatement()
+		// } else if p.peekTokenIs(token.FUNCTION) {
+		// 	tok := p.peekToken
+		// 	expr := p.parseFunctionLiteral()
+		// 	return &ast.ExpressionStatement{
+		// 		Token:      tok,
+		// 		Expression: expr,
+		// 	}
 	} else {
 		tok := p.peekToken
 		expr := p.parseParenthesesExpression()
@@ -141,16 +166,6 @@ func (p *Parser) parseParenthesesStatement() ast.Statement {
 			Expression: expr,
 		}
 	}
-}
-
-func (p *Parser) parseCallExpression(function ast.Expression) *ast.CallExpression {
-	exp := &ast.CallExpression{
-		Token:    p.curToken,
-		Function: function,
-	}
-
-	exp.Arguments = p.parseExpressionList(token.RPAREN)
-	return exp
 }
 
 func (p *Parser) parseLetStatement() *ast.LetStatement {
@@ -187,44 +202,6 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 	}
 
 	return stmt
-}
-
-func (p *Parser) parseIfExpression() ast.Expression {
-	expr := &ast.IfExpression{Token: p.curToken}
-
-	p.nextToken()
-	expr.Condition = p.parseExpression()
-	if !p.expectPeek(token.COLON) { // start of consequence
-		return nil
-	}
-	expr.Consequence = p.parseBlockStatement(token.COMMA, token.RPAREN)
-
-	if p.curTokenIs(token.COMMA) { // start of else block
-		expr.Alternative = p.parseBlockStatement(token.RPAREN, token.RPAREN)
-	}
-
-	if !p.expectCur(token.RPAREN) {
-		return nil
-	}
-	p.nextToken()
-	return expr
-}
-
-func (p *Parser) parseBlockStatement(endToken token.TokenType, fallbackEnd token.TokenType) *ast.BlockStatement {
-	block := &ast.BlockStatement{Token: p.curToken}
-	block.Statements = []ast.Statement{}
-
-	p.nextToken()
-
-	for !p.curTokenIs(endToken) && !p.curTokenIs(fallbackEnd) {
-		stmt := p.parseStatement()
-		if stmt != nil {
-			block.Statements = append(block.Statements, stmt)
-		}
-		p.nextToken()
-	}
-
-	return block
 }
 
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
@@ -336,6 +313,44 @@ func (p *Parser) parseLiteral() ast.Expression {
 	}
 }
 
+func (p *Parser) parseIfExpression() ast.Expression {
+	expr := &ast.IfExpression{Token: p.curToken}
+
+	p.nextToken()
+	expr.Condition = p.parseExpression()
+	if !p.expectPeek(token.COLON) { // start of consequence
+		return nil
+	}
+	expr.Consequence = p.parseBlockStatement(token.COMMA, token.RPAREN)
+
+	if p.curTokenIs(token.COMMA) { // start of else block
+		expr.Alternative = p.parseBlockStatement(token.RPAREN, token.RPAREN)
+	}
+
+	if !p.expectCur(token.RPAREN) {
+		return nil
+	}
+	p.nextToken()
+	return expr
+}
+
+func (p *Parser) parseBlockStatement(endToken token.TokenType, fallbackEnd token.TokenType) *ast.BlockStatement {
+	block := &ast.BlockStatement{Token: p.curToken}
+	block.Statements = []ast.Statement{}
+
+	p.nextToken()
+
+	for !p.curTokenIs(endToken) && !p.curTokenIs(fallbackEnd) && !p.curTokenIs(token.EOF) {
+		stmt := p.parseStatement()
+		if stmt != nil {
+			block.Statements = append(block.Statements, stmt)
+		}
+		p.nextToken()
+	}
+
+	return block
+}
+
 func (p *Parser) parseFunctionLiteral() ast.Expression {
 	fn := &ast.FunctionLiteral{Token: p.curToken}
 
@@ -344,11 +359,16 @@ func (p *Parser) parseFunctionLiteral() ast.Expression {
 	}
 
 	fn.Parameters = p.parseFunctionParameters()
+
 	if !p.expectPeek(token.COLON) {
 		return nil
 	}
 
 	fn.Body = p.parseBlockStatement(token.RPAREN, token.RPAREN)
+
+	if !p.expectCur(token.RPAREN) {
+		return nil
+	}
 	return fn
 }
 
@@ -368,7 +388,7 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 	for p.peekTokenIs(token.COMMA) {
 		p.nextToken()
 		p.nextToken()
-		id := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		id = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 		ids = append(ids, id)
 	}
 
@@ -423,6 +443,16 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 	arr := &ast.ArrayLiteral{Token: p.curToken}
 	arr.Elements = p.parseExpressionList(token.RBRACKET)
 	return arr
+}
+
+func (p *Parser) parseCallExpression(function ast.Expression) *ast.CallExpression {
+	exp := &ast.CallExpression{
+		Token:    p.curToken,
+		Function: function,
+	}
+
+	exp.Arguments = p.parseExpressionList(token.RPAREN)
+	return exp
 }
 
 // used for array literals and function calls

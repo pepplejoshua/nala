@@ -48,3 +48,11 @@ let na = fn(a) {
 }
 
 let xover = "Hello Ellisp from Nala Side!!"
+
+let Nalafullname = fn(f) {
+    fn(m) {
+        fn(l) {
+            "your names are " + f + m + l
+        }
+    }
+}

@@ -15,6 +15,7 @@ import (
 	"nala/parser"
 	"nala/vm"
 	"os"
+	"os/user"
 	"time"
 )
 
@@ -64,6 +65,7 @@ func Start(in io.Reader, out io.Writer) {
 	}
 
 	// run the predefined functions through first
+	showIntro()
 	if *engine {
 		fmt.Print("using VM...\n")
 		globals, constants = compileAndRunProg(nalaFuncsProg, symbolTable, constants, globals, false, false)
@@ -283,4 +285,19 @@ func printParseErrors(out io.Writer, errs []string) {
 	for _, msg := range errs {
 		io.WriteString(out, "\t"+msg+"\n")
 	}
+}
+
+func showIntro() {
+	user, err := user.Current()
+	if err != nil {
+		panic(err)
+	}
+
+	if *lang {
+		fmt.Printf("Hello %s! This is Nala programming language!\n", user.Username)
+	} else {
+		fmt.Printf("Hello %s! This is Ellisp programming language!\n", user.Username)
+	}
+	fmt.Printf("Feel free to type commands\n")
+	fmt.Printf("Enter '.q' to quit the REPL.\n")
 }
