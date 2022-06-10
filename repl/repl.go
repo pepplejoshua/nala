@@ -54,9 +54,11 @@ func Start(in io.Reader, out io.Writer) {
 			// go on to execute it
 			// load in nalaFuncsProg first
 			if *engine {
+				fmt.Print("using VM...\n")
 				globals, constants = compileAndRunProg(nalaFuncsProg, symbolTable, constants, globals, false, false)
 				compileAndRunProg(userProg, symbolTable, constants, globals, false, true)
 			} else {
+				fmt.Print("using TreeWalker...\n")
 				evaluateProg(nalaFuncsProg, env, false)
 				evaluateProg(userProg, env, true)
 			}
@@ -156,9 +158,7 @@ func compileAndRunProg(prog *ast.Program, st *compiler.SymbolTable, cons,
 		return globals, cons
 	}
 
-	now := time.Now()
 	top, globs, err := runVM(comp.ByteCode(), globals)
-	duration := time.Since(now)
 
 	if err != nil {
 		if showRes {
@@ -172,7 +172,6 @@ func compileAndRunProg(prog *ast.Program, st *compiler.SymbolTable, cons,
 		fmt.Println(top.Inspect())
 	}
 
-	fmt.Printf("[duration: %s]\n", duration)
 	cons = comp.ByteCode().Constants
 	if show && top.Type() != object.COMPILED_FUNCTION_OBJ &&
 		// top.Type() != object.ERROR_OBJ &&
@@ -192,14 +191,22 @@ func compileAndRunProg(prog *ast.Program, st *compiler.SymbolTable, cons,
 
 func runVM(bc *compiler.ByteCode, globals []object.Object) (object.Object, []object.Object, error) {
 	machine := vm.NewWithGlobalsStore(bc, globals)
+	now := time.Now()
 	err := machine.Run()
+	duration := time.Since(now)
+	fmt.Printf("[duration: %s]\n", duration)
+
 	top := machine.LastPoppedElement()
 
 	return top, machine.Globals(), err
 }
 
 func evaluateProg(prog *ast.Program, env *object.Environment, show bool) {
+	now := time.Now()
 	res := evaluator.Eval(prog, env)
+	duration := time.Since(now)
+
+	fmt.Printf("[duration: %s]\n", duration)
 
 	if show {
 		if res != nil {

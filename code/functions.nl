@@ -33,6 +33,15 @@ let product = fn(arr) {
     reduce(arr, 1, fn(in, el) { in * el })
 };
 
+let pow = fn(num, times) {
+    if (times == 1) {
+        return num
+    } else {
+        return num * pow(num, times - 1)
+    }
+    
+}
+
 let info = {"name": "Nala", "version": "0.0.9", "author": "Iwarilama"};
 
 let fibo = fn(x) { if (x < 2) { return x }; fibo(x - 1) + fibo(x - 2) };
